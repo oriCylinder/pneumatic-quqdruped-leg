@@ -81,12 +81,6 @@ void loop() {
     }
     servos[i].write(90.0 + output);
 
-    // # For Debug
-    // for (int u=0; u<180; u++) {
-    //   servos[i].write(u);
-    //   delay(100);
-    // }
-
     // シリアルモニタに出力
     Serial.print("targetAngle:");
     Serial.print(targetAngle[i]);
