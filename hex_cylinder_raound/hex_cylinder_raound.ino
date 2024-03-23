@@ -64,8 +64,7 @@ void loop() {
     //   integral[i] = integralMax;
     // }
     derivative[i] = error[i] - prevError[i];
-    float output = kp * error[i] + ki * integral[i] - kd * derivative[i]/dt;
-    // float output = kp * error[i] + ki * integral[i] - kd /dt;
+    float output = kp * error[i] + ki * integral[i] + kd * derivative[i]/dt;
     // if ((outputOld-output)>1){
     //   output=output+1;
     // }else if((outputOld-output)<-1){
