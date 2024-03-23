@@ -10,10 +10,10 @@ float error[numCylinders]; // 現在の偏差
 float prevError[numCylinders] = {0.0}; // 前回の偏差
 float integral[numCylinders]; // 積分項
 float derivative[numCylinders]; // 微分項
-float kp = 2; // 比例ゲイン
-float ki = 0.6; // 積分ゲイン
-float kd = 0.1; // 微分ゲイン
-float dt = 0.001; // 固定の周期（例: 0.01秒）
+float kp = 1.5; // 比例ゲイン
+float ki = 1.6; // 積分ゲイン
+float kd = 0.5; // 微分ゲイン
+float dt = 0.01; // 固定の周期（例: 0.01秒）
 float integralMin = -100.0; // 積分項の下限値
 float integralMax = 100.0; // 積分項の上限値
 float outputOld=0.0;
