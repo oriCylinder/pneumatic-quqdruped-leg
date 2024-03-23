@@ -1,4 +1,16 @@
 #include <Servo.h>
+#include <math.h>
+
+#define PI 3.1415
+#define targetMode 2
+/*---
+ターゲット位置の波形
+0 : 三角波
+1 : 矩形波
+2 : 正弦波
+---*/
+#define targetFreq 0.5
+//ターゲット位置の波形の周波数(Hz)
 
 const int numCylinders = 1;
 Servo servos[numCylinders];
@@ -14,14 +26,17 @@ float kp = 0.8;                           // 比例ゲイン
 float ki = 1.2;                           // 積分ゲイン
 float kd = 0.5;                           // 微分ゲイン
 float dt = 0;                             // 前回との時間差分
+float dtTgt = 0;                          //Target位置生成用の時間差分
 uint32_t nowTime = 0;                     //今の時間(ms)
 uint32_t oldTime = 0;                     //前回時間(ms)
 float integralMin = -100.0;               // 積分項の下限値
 float integralMax = 100.0;                // 積分項の上限値
 float outputOld = 0.0;
 
-char direction[numCylinders] = { 1 };  // ポテンショメーターの値を模擬的に変化させる方向を保持する変数
-int simulatedPotValue = 0;             // ポテンショメーターの値を模擬的に保持する変数
+char direction = 1;         // ポテンショメーターの値を模擬的に変化させる方向を保持する変数
+int simulatedPotValue = 0;  // ポテンショメーターの値を模擬的に保持する変数
+
+void targetGen(void);
 
 void setup() {
   Serial.begin(9600);
@@ -40,19 +55,15 @@ void setup() {
 }
 
 void loop() {
-  //現在時刻取得(ms)
+  //現在時刻取得(us)
   nowTime = micros();
   //時間差分計算
-  dt = (nowTime - oldTime);
-  dt = float(dt) / 1000.0;
+  dt = float(nowTime - oldTime) / 1000000.0;
   //oldTime初期化
   oldTime = nowTime;
 
-  // ポテンショメーターの値を模擬的に変化させる
-  simulatedPotValue += 3 * direction[0];
-  if (simulatedPotValue >= 1023 || simulatedPotValue <= 0) {
-    direction[0] *= -1;  // 値が 0 から 1023 の範囲を超えたら方向を反転させる
-  }
+  // Target波形を動的に生成する関数
+  targetGen();
 
   // 各シリンダーごとの処理
   for (int i = 0; i < numCylinders; i++) {
@@ -103,14 +114,42 @@ void loop() {
     Serial.print(", ");
     Serial.print("output:");
     Serial.print(output);
-    Serial.print(", ");
-    Serial.print("dt:");
-    Serial.print(dt);
+    // Serial.print(", ");
+    // Serial.print("dt:");
+    // Serial.print(dt);
+    // Serial.print(", ");
+    // Serial.print("nowTime:");
+    // Serial.print(float(nowTime / 1000000.0));
   }
   Serial.println();
 
   // 前回の偏差を更新
   for (int i = 0; i < numCylinders; i++) {
     prevError[i] = error[i];
+  }
+}
+
+void targetGen(void) {
+  switch (targetMode) {
+    case 0:
+      simulatedPotValue += 4 * 1023 * targetFreq * dt * direction;
+      if (simulatedPotValue >= 1023 || simulatedPotValue <= 0) {
+        direction = direction * -1;  // 値が 0 から 1023 の範囲を超えたら方向を反転させる
+      }
+      break;
+    case 1:
+      dtTgt = dtTgt + dt;
+      if (2 * targetFreq * dtTgt > 1) {
+        dtTgt = 0;
+        if (simulatedPotValue == 1023) {
+          simulatedPotValue = 0;
+        } else {
+          simulatedPotValue = 1023;
+        }
+      }
+      break;
+    case 2:
+      simulatedPotValue = 512 * sin(2 * PI * targetFreq * nowTime / 1000000) + 511;
+      break;
   }
 }
