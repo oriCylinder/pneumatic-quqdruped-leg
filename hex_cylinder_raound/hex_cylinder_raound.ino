@@ -1,9 +1,9 @@
 #include <Servo.h>
 #include <math.h>
 
-#define kp 0.1    // 比例ゲイン
-#define ki 0.01   // 積分ゲイン
-#define kd 0.008  // 微分ゲイン
+#define kp 0.02    // 比例ゲイン
+#define ki 0.005   // 積分ゲイン
+#define kd 0.00  // 微分ゲイン
 
 /*---
 目標値の波形
@@ -98,9 +98,9 @@ void loop() {
     //出力変化量を計算
     dOutput = kp * err[i] + ki * errVel[i] + kd * errAcc[i];
 
-    // if (err[i] != prevErr[i]) {
-    //   output = 0;
-    // }
+    if (err[i] * prevErr[i] < 0) {
+      output = 0;
+    }
 
     //出力を計算
     output += dOutput;
