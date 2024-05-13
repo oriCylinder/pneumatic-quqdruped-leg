@@ -96,7 +96,7 @@ void loop() {
     errAcc[i] = (errVel[i] - prevErrVel[i]) / dt;
 
     //出力変化量を計算
-    dOutput = kp * err[i] + ki * errVel[i] + kd * errAcc[i];
+    dOutput = kp * errVel[i] + ki * err[i] + kd * errAcc[i];
 
     if (err[i] * prevErr[i] < 0) {
       output = 0;
