@@ -49,7 +49,7 @@
                             MDButton:
                                 style: "filled"
                                 id: connect_button
-                                on_release: app.connect()
+                                on_release: root.on_connect_button_press()
                                 pos_hint: {"center_y": .5}
                                 MDButtonText:
                                     id: connect_button_text
@@ -87,7 +87,7 @@
                     MDButton:
                         style: "elevated"
                         id: disconnect_button
-                        on_release: app.disconnect()
+                        on_release: root.on_disconnect_button_press()
                         pos_hint: {"center_y": .5}
                         MDButtonText:
                             text: "切断"
