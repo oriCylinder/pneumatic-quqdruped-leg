@@ -45,7 +45,7 @@ class MainScreen(MDScreen):
     def on_disconnect_button_press(self):
         """切断ボタンが押されたときに通信を切断します。"""
         app = MDApp.get_running_app()
-        app.stop_communication()
+        app.stop_communication("切断されました")
 
 class PageManager(MDScreenManager):
     pass
@@ -142,7 +142,7 @@ class NativeGUIApp(MDApp):
         print("UDPサーバーに接続中")
         try:
             self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.udp_socket.bind(("localhost", 6050))
+            self.udp_socket.bind(("localhost", 6010))
             print("UDPでサーバーからのメッセージを受信中...")
 
             while True:
