@@ -65,7 +65,6 @@ def udp_server():
     while not stop_event.is_set():
         data = generate_data()
         json_data = json.dumps(data)
-        udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
         udp_socket.sendto(json_data.encode('utf-8'), (IP, 6010))
         print(f"UDP送信: {json_data}")
         time.sleep(1)
