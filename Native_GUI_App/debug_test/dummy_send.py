@@ -6,6 +6,7 @@ import threading
 
 # サンプルデータの作成
 def generate_data():
+    #受信→変換→戻り値指定
     return {
         "sensors": [
             {"num": i, "position": random.randint(0, 4095), "voltage": random.randint(0, 4095), "command": random.randint(0, 1800)} 
