@@ -1,7 +1,7 @@
 #include "DataPollAndParse.h"
 
 USBPolling::USBPolling()
-  : _mySerial(Serial0) {}
+  : _mySerial(Serial0), _poly(0x3F) {}
 
 void USBPolling::begin(const uint32_t baudRate) {
   _mySerial.begin(baudRate);
@@ -9,12 +9,36 @@ void USBPolling::begin(const uint32_t baudRate) {
 
 bool USBPolling::poll() {
   if (_mySerial.available() >= 8) {
+    uint8_t __crc = 0;
+    uint8_t __getCRC = 0;
+
     _mySerial.readBytes(reinterpret_cast<char*>(&_getData), sizeof(_getData));
-    //---------------------
-    // sendData(_getData);
-    //---------------------
-    if (dataParse()) {
-      return true;
+    uint64_t __getDataCRC = _getData & 0xFFFFFFFFFFFFFFC0;
+    __getCRC = static_cast<uint8_t>(_getData & 0x3F);
+
+    for (int __j = 0; __j < 32; __j++) {
+      for (int __i = 63; __i >= 0; --__i) {
+        bool __bit = (__getDataCRC >> __i) & 1;
+        bool __crcMsb = (__crc >> 5) & 1;
+
+        __crc <<= 1;
+        if (__bit ^ __crcMsb) {
+          __crc ^= _poly;
+        }
+      }
+      __crc &= 0x3F;
+
+      if (__crc == __getCRC) {
+        if (dataParse()) {
+          return true;
+        }
+        return false;
+      }
+
+      if (_mySerial.available()) {
+        uint8_t __newByte = _mySerial.read();
+        _getData = (_getData << 8) | __newByte;
+      }
     }
     clearSerialBuffer();
   }
@@ -135,6 +159,7 @@ void USBPolling::sendData(const uint64_t& data) const {
 }
 
 const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t data1, const uint16_t data2, const uint16_t data3, const uint16_t data4, const uint16_t data5) {
+  uint8_t __crc = 0;
   uint8_t __dataBit[6] = { 6, 0, 0, 0, 0, 0 };
   uint8_t __dataShift[6];
   uint64_t __dataMask[6];
@@ -192,5 +217,17 @@ const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t da
     default:
       break;
   }
+
+  for (int __i = 63; __i >= 0; --__i) {
+    bool __bit = (_sendData >> __i) & 1;
+    bool __crcMsb = (__crc >> 5) & 1;
+
+    __crc <<= 1;
+    if (__bit ^ __crcMsb) {
+      __crc ^= _poly;
+    }
+  }
+  __crc &= 0x3F;
+  _sendData = _sendData | __crc;
   return _sendData;
 }

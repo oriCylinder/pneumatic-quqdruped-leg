@@ -33,6 +33,8 @@ private:
   ParsedDataStruct _parsedData;
   uint64_t _getData;
   uint64_t _sendData;
+  
+  const uint8_t _poly;
 
   bool dataParse(void);
   bool parseFields(uint8_t len1, uint8_t len2, uint8_t len3, uint8_t len4, uint8_t len5, uint8_t len6, uint8_t len7, uint8_t len8);
