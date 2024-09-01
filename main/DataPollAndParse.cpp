@@ -152,8 +152,8 @@ const ParsedDataStruct& USBPolling::getParsedData() const {
 }
 
 void USBPolling::sendData(const uint64_t& data) const {
-  for (int __i = sizeof(data) * 8 - 1; __i >= 0; --__i) {
-    _mySerial.print(bitRead(data, __i));
+  for (int i = sizeof(data) - 1; i >= 0; --i) {
+    _mySerial.write(reinterpret_cast<const uint8_t*>(&data)[i]);
   }
   // _mySerial.println();
 }
