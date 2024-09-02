@@ -1,16 +1,21 @@
 # GUIライブラリのインポート
 from kivymd.app import MDApp
 from kivy.lang import Builder
+from kivy.config import Config
+Config.set('graphics', 'maxfps', 60)
+Config.set('kivy', 'kivy_clock', 'free_all')
 
 # GUIコンポーネント関連
 from kivymd.uix.card import MDCard
 from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
+from kivy.uix.boxlayout import BoxLayout
 
 # Kivyフォント関連
 from kivy.core.text import LabelBase, DEFAULT_FONT
 LabelBase.register(DEFAULT_FONT, './font/NotoSansJP-Regular.ttf')
 
 # グラフ描画関連
+import numpy as np
 from kivy.clock import Clock
 from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 import matplotlib.pyplot as plt
@@ -27,6 +32,8 @@ import json
 import socket
 import threading
 
+stop_event = threading.Event()
+
 class StartScreen(MDScreen):
     def on_connect_button_press(self):
         """接続ボタンが押されたときに通信を開始します。"""
@@ -34,14 +41,6 @@ class StartScreen(MDScreen):
         app.start_communication()
 
 class MainScreen(MDScreen):
-    def update_tcp_label(self, message):
-        """TCPからのメッセージを表示します。"""
-        self.ids.tcp_label.text = f"TCP受信: {message}"
-
-    def update_udp_label(self, message):
-        """UDPからのメッセージを表示します。"""
-        self.ids.udp_label.text = f"UDP受信: {message}"
-
     def on_disconnect_button_press(self):
         """切断ボタンが押されたときに通信を切断します。"""
         app = MDApp.get_running_app()
@@ -65,98 +64,67 @@ class NativeGUIApp(MDApp):
         self.address_field = self.screen_manager.get_screen('start').ids.address_field
         self.progressindicator = self.screen_manager.get_screen('start').ids.progressindicator
 
-        self.tcp_thread = None
         self.udp_thread = None
         
         return self.screen_manager
     
+    def on_stop(self):
+        stop_event.set()
+        return True
+    
     def start_communication(self):
-        """TCPの通信を開始します。"""
+        """UDP通信を開始します。"""
         address_field = self.screen_manager.get_screen('start').ids.address_field
+        
+        self.udp_thread = None
+        stop_event.clear()
 
-        if not self.tcp_thread:
-            self.running = True
-            self.tcp_thread = threading.Thread(target=self.tcp_client, args=(address_field.text,))
-            self.tcp_thread.start()
+        if not self.udp_thread:
+            self.udp_thread = threading.Thread(target=self.udp_client, args=(address_field.text,))
+            self.udp_thread.start()
 
-    def stop_communication(self, error):
-        """TCPとUDPの通信を切断します。"""
-        self.running = False
-        Clock.schedule_once(lambda dt: self.change_screen('start'))
+    def stop_communication(self, message):
+        """UDPの通信を切断します。"""
+        self.change_screen('start')
         self.connect_button.disabled = False
         self.address_field.disabled = False
         self.progressindicator.active = False
-
-        Clock.schedule_once(lambda dt: self.show_snackbar(error)) # エラーメッセージをsnackbarに表示
-
-        if self.tcp_thread:
-            self.tcp_socket.close()
-            self.tcp_thread = None
-            #self.screen_manager.get_screen('main').update_tcp_label("TCP切断")
-        if self.udp_thread:
-            self.udp_socket.close()
-            self.udp_thread = None
-            #self.screen_manager.get_screen('main').update_udp_label("UDP切断")
-        print("切断しました")
-
-    def tcp_client(self,address):
+        
+        stop_event.set()
+        Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
+    
+    def udp_client(self,address):
         self.settings_manager.update_setting('address', self.screen_manager.get_screen('start').ids.address_field.text)
         self.settings_manager.save_settings()
         self.connect_button.disabled = True
         self.address_field.disabled = True
         self.progressindicator.active = True
-
-        print("TCPサーバーに接続中")
-        try:
-            self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tcp_socket.connect((address, 6000))
-            print("接続完了")
-            
-            response = self.tcp_socket.recv(1024)
-            print(f"サーバーからのメッセージ: {response.decode()}")
-            Clock.schedule_once(lambda dt: self.change_screen('main'))
-            #Clock.schedule_once(lambda dt: self.screen_manager.get_screen('main').update_tcp_label(response.decode()))
-
-            # TCP接続が確立されたので、UDP接続を開始
-            self.udp_thread = threading.Thread(target=self.udp_client, args=(address,))
-            self.udp_thread.start()
-
-            while self.running:
-                #TCP通信->Server
-                #message = self.screen_manager.get_screen('start').ids.input_field.text
-                message = "TCP_SPEAKING"
-                if message:
-                    self.tcp_socket.sendall(message.encode())
-                    if message.lower() == "exit":
-                        break
-
-        except Exception as e:
-            print(f"TCPクライアントエラー: {e}")
-            self.stop_communication("TCPサーバーに接続できません")
-        finally:
-            if self.tcp_socket:
-                self.tcp_socket.close()
-                self.tcp_socket = None
-
-    def udp_client(self,address):
+        
         print("UDPサーバーに接続中")
         try:
             self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.udp_socket.bind(("localhost", 6010))
+            self.udp_socket.settimeout(3)
+            self.udp_socket.bind((address, 6050))
             print("UDPでサーバーからのメッセージを受信中...")
-
-            while True:
+            
+            #初回のデータを受け取ったときの処理
+            data, addr = self.udp_socket.recvfrom(1024)
+            print(f"Connected: {addr}")
+            Clock.schedule_once(lambda x: self.change_screen('main'))
+            
+            #グラフ描画
+            while not stop_event.is_set():
                 data, addr = self.udp_socket.recvfrom(1024)
                 print(f"UDP 受信: {data.decode()}")
-                #Clock.schedule_once(lambda dt: self.screen_manager.get_screen('main').update_udp_label(data.decode()))
+                
+            self.udp_socket.close()
+            self.udp_socket = None
+            print("切断しました")
 
         except Exception as e:
             print(f"UDPクライアントエラー: {e}")
             self.stop_communication("UDPサーバーに接続できません")
-        finally:
-            if self.udp_socket:
-                self.udp_socket.close()
-                self.udp_socket = None
+            
     
     def switch_theme_style(self):
         self.theme_cls.theme_style = (
@@ -204,6 +172,48 @@ class SettingsManager:
     def get_setting(self, key, default=None):
         """設定を取得します。指定されたキーが存在しない場合はデフォルト値を返します。"""
         return self.settings.get(key, default)
+    
+class GraphView(BoxLayout):
+    """Matplotlib のグラフを表示するためのウィジェット"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # 初期化に用いるデータ
+        x = np.linspace(-np.pi, np.pi, 100)
+        y = np.sin(x)
+        # 描画状態を保存するためのカウンタ
+        self.counter = 0
+
+        # Figure, Axis を保存しておく
+        self.fig, self.ax = plt.subplots()
+        # 最初に描画したときの Line も保存しておく
+        self.line, = self.ax.plot(x, y)
+
+        # ウィジェットとしてグラフを追加する
+        widget = FigureCanvasKivyAgg(self.fig)
+        self.add_widget(widget)
+
+        # 0.033 秒ごとに表示を更新するタイマーを仕掛ける
+        Clock.schedule_interval(self.update_view, 0.033)
+        
+    def update_view(self, *args, **kwargs):
+        # データを更新する
+        self.counter += np.pi / 100  # 10 分の pi ずらす
+        # ずらした値を使ってデータを作る
+        x = np.linspace(-np.pi + self.counter,
+                        np.pi + self.counter,
+                        100)
+        y = np.sin(x)
+        # Line にデータを設定する
+        self.line.set_data(x, y)
+        # グラフの見栄えを調整する
+        self.ax.relim()
+        self.ax.autoscale_view()
+        # 再描画する
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
     
 class NonInteractiveCard(MDCard):
     def __init__(self, **kwargs):
