@@ -10,39 +10,6 @@ void USBPolling::begin(const uint32_t baudRate) {
 }
 
 bool USBPolling::poll() {
-<<<<<<< HEAD
-  if (_mySerial.available() >= 8) {
-    uint8_t __crc = 0;
-    uint8_t __getCRC = 0;
-
-    _mySerial.readBytes(reinterpret_cast<char*>(&_getData), sizeof(_getData));
-    uint64_t __getDataCRC = _getData & 0xFFFFFFFFFFFFFFC0;
-    __getCRC = static_cast<uint8_t>(_getData & 0x3F);
-
-    for (int __j = 0; __j < 32; __j++) {
-      for (int __i = 63; __i >= 0; --__i) {
-        bool __bit = (__getDataCRC >> __i) & 1;
-        bool __crcMsb = (__crc >> 5) & 1;
-
-        __crc <<= 1;
-        if (__bit ^ __crcMsb) {
-          __crc ^= _poly;
-        }
-      }
-      __crc &= 0x3F;
-
-      if (__crc == __getCRC) {
-        if (dataParse()) {
-          return true;
-        }
-        return false;
-      }
-
-      if (_mySerial.available()) {
-        uint8_t __newByte = _mySerial.read();
-        _getData = (_getData << 8) | __newByte;
-      }
-=======
   if (_mySerial.available() >= 12) {
     String __encordData = _mySerial.readStringUntil('\n');
     if (__encordData.length() != 12) {
@@ -57,7 +24,6 @@ bool USBPolling::poll() {
     }
     if (dataParse()) {
       return true;
->>>>>>> 45d70ba (送信データをBASE64に変換してbyte単位で送信。)
     }
   }
   return false;
@@ -170,16 +136,9 @@ const ParsedDataStruct& USBPolling::getParsedData() const {
 }
 
 void USBPolling::sendData(const uint64_t& data) const {
-<<<<<<< HEAD
-  for (int i = sizeof(data) - 1; i >= 0; --i) {
-    _mySerial.write(reinterpret_cast<const uint8_t*>(&data)[i]);
-  }
-  // _mySerial.println();
-=======
   char __encoded[Base64.encodedLength(sizeof(data))];
   Base64.encode(__encoded, (char*)&data, sizeof(data));
   _mySerial.println(__encoded);
->>>>>>> 45d70ba (送信データをBASE64に変換してbyte単位で送信。)
 }
 
 const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t data1, const uint16_t data2, const uint16_t data3, const uint16_t data4, const uint16_t data5) {
