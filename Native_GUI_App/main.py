@@ -3,7 +3,8 @@ from kivymd.app import MDApp
 from kivy.lang import Builder
 from kivy.config import Config
 Config.set('graphics', 'maxfps', 60)
-Config.set('kivy', 'kivy_clock', 'free_all')
+from kivymd.uix.label import MDLabel
+
 
 # GUIコンポーネント関連
 from kivymd.uix.card import MDCard
@@ -31,6 +32,8 @@ from kivymd.uix.screenmanager import MDScreenManager
 import json
 import socket
 import threading
+import queue
+import time
 
 stop_event = threading.Event()
 
@@ -51,6 +54,7 @@ class PageManager(MDScreenManager):
     
 class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
+    GraphData = ''
     
     def build(self):
         self.screen_manager = PageManager()
@@ -66,6 +70,8 @@ class NativeGUIApp(MDApp):
 
         self.udp_thread = None
         
+        #Clock.schedule_interval(self.draw_graph, 1/30)
+        
         return self.screen_manager
     
     def on_stop(self):
@@ -76,11 +82,19 @@ class NativeGUIApp(MDApp):
         """UDP通信を開始します。"""
         address_field = self.screen_manager.get_screen('start').ids.address_field
         
+        #ソケットをここで作っておく　名前を要変更
+        self.udpClntSock = socket(AF_INET, SOCK_DGRAM)
+        self.DstAddr = (DstIP,DstPort)   
+        self.udpClntSock.sendto(data, address)
+        
         self.udp_thread = None
         stop_event.clear()
+        
+        #self.data_queue = queue.Queue() #キューを作る
+        Clock.schedule_interval(self.draw_graph, 1/30)
 
         if not self.udp_thread:
-            self.udp_thread = threading.Thread(target=self.udp_client, args=(address_field.text,))
+            self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address_field.text,))
             self.udp_thread.start()
 
     def stop_communication(self, message):
@@ -93,7 +107,7 @@ class NativeGUIApp(MDApp):
         stop_event.set()
         Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
     
-    def udp_client(self,address):
+    def udp_receiver(self,address):
         self.settings_manager.update_setting('address', self.screen_manager.get_screen('start').ids.address_field.text)
         self.settings_manager.save_settings()
         self.connect_button.disabled = True
@@ -108,13 +122,16 @@ class NativeGUIApp(MDApp):
             print("UDPでサーバーからのメッセージを受信中...")
             
             #初回のデータを受け取ったときの処理
-            data, addr = self.udp_socket.recvfrom(1024)
+            data, addr = self.udp_socket.recvfrom(4096)
             print(f"Connected: {addr}")
             Clock.schedule_once(lambda x: self.change_screen('main'))
             
             #グラフ描画
             while not stop_event.is_set():
-                data, addr = self.udp_socket.recvfrom(1024)
+                #self.data_queue.put(data)   #キューにデータを入れる
+                
+                data, addr = self.udp_socket.recvfrom(4096)
+                self.GraphData = data.decode()
                 print(f"UDP 受信: {data.decode()}")
                 
             self.udp_socket.close()
@@ -124,8 +141,8 @@ class NativeGUIApp(MDApp):
         except Exception as e:
             print(f"UDPクライアントエラー: {e}")
             self.stop_communication("UDPサーバーに接続できません")
-            
-    
+
+             
     def switch_theme_style(self):
         self.theme_cls.theme_style = (
             "Dark" if self.theme_cls.theme_style == "Light" else "Light"
@@ -145,6 +162,46 @@ class NativeGUIApp(MDApp):
             size_hint_x=0.5,
         )
         snackbar.open()
+        
+    def draw_graph(self, dt):
+        self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
+        
+        x = np.linspace(-np.pi, np.pi, 100)
+        y = np.sin(x)
+        # 描画状態を保存するためのカウンタ
+        self.counter = 0
+
+        # Figure, Axis を保存しておく
+        self.fig, self.ax = plt.subplots()
+        # 最初に描画したときの Line も保存しておく
+        self.line, = self.ax.plot(x, y)
+
+        # ウィジェットとしてグラフを追加する
+        widget = FigureCanvasKivyAgg(self.fig)
+        self.graph_area.clear_widgets()
+        self.graph_area.add_widget(widget)
+        
+        #label = MDLabel(text=self.GraphData)
+        
+        #self.graph_area.add_widget(label)
+        
+    def update_view(self, *args, **kwargs):
+        # データを更新する
+        self.counter += np.pi / 100  # 10 分の pi ずらす
+        # ずらした値を使ってデータを作る
+        x = np.linspace(-np.pi + self.counter,
+                        np.pi + self.counter,
+                        100)
+        y = np.sin(x)
+        # Line にデータを設定する
+        self.line.set_data(x, y)
+        # グラフの見栄えを調整する
+        self.ax.relim()
+        self.ax.autoscale_view()
+        # 再描画する
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
     
 class SettingsManager:
     def __init__(self, filename='settings.json'):
@@ -172,47 +229,6 @@ class SettingsManager:
     def get_setting(self, key, default=None):
         """設定を取得します。指定されたキーが存在しない場合はデフォルト値を返します。"""
         return self.settings.get(key, default)
-    
-class GraphView(BoxLayout):
-    """Matplotlib のグラフを表示するためのウィジェット"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # 初期化に用いるデータ
-        x = np.linspace(-np.pi, np.pi, 100)
-        y = np.sin(x)
-        # 描画状態を保存するためのカウンタ
-        self.counter = 0
-
-        # Figure, Axis を保存しておく
-        self.fig, self.ax = plt.subplots()
-        # 最初に描画したときの Line も保存しておく
-        self.line, = self.ax.plot(x, y)
-
-        # ウィジェットとしてグラフを追加する
-        widget = FigureCanvasKivyAgg(self.fig)
-        self.add_widget(widget)
-
-        # 0.033 秒ごとに表示を更新するタイマーを仕掛ける
-        Clock.schedule_interval(self.update_view, 0.033)
-        
-    def update_view(self, *args, **kwargs):
-        # データを更新する
-        self.counter += np.pi / 100  # 10 分の pi ずらす
-        # ずらした値を使ってデータを作る
-        x = np.linspace(-np.pi + self.counter,
-                        np.pi + self.counter,
-                        100)
-        y = np.sin(x)
-        # Line にデータを設定する
-        self.line.set_data(x, y)
-        # グラフの見栄えを調整する
-        self.ax.relim()
-        self.ax.autoscale_view()
-        # 再描画する
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
         
     
 class NonInteractiveCard(MDCard):
