@@ -3,6 +3,7 @@
 
 #include "Arduino.h"
 #include "HardwareSerial.h"
+#include "Base64.h"
 
 #include "ComDataStruct.h"
 

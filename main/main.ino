@@ -28,9 +28,9 @@ uint16_t posAry[valveTotalNum][2] = { 0 };          //map後のポジション�
 uint16_t capturedValAry[valveTotalNum][2] = { 0 };  //キャプチャー電圧を格納する配列 - { stroke, offset }
 
 //その他変数
-const uint8_t PVCInterval = 33;  //PVCの送信周期[ms]
-uint32_t nowTime;                //現在時刻を格納(PVCの定時送信に使用)
-uint32_t preTime;                //前回時間を格納(PVCの定時送信に使用)
+const uint16_t PVCInterval = 33;  //PVCの送信周期[ms]
+uint32_t nowTime;                 //現在時刻を格納(PVCの定時送信に使用)
+uint32_t preTime;                 //前回時間を格納(PVCの定時送信に使用)
 
 //関数のプロトタイプ宣言
 void sendDataCGC(uint8_t num);  //CGCデータの送信
@@ -79,6 +79,7 @@ void loop() {
     for (int i = 0; i < valveTotalNum; i++) {
       sendDataPVC(i);  //PVC送信関数
     }
+    preTime = nowTime;  //前回時間を更新
   }
 
   //受信データがあるか確認(データがあればtrue、なければfalseが返ってくる)
