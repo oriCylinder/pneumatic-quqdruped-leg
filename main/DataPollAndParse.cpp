@@ -142,7 +142,6 @@ void USBPolling::sendData(const uint64_t& data) const {
 }
 
 const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t data1, const uint16_t data2, const uint16_t data3, const uint16_t data4, const uint16_t data5) {
-  uint8_t __crc = 0;
   uint8_t __dataBit[6] = { 6, 0, 0, 0, 0, 0 };
   uint8_t __dataShift[6];
   uint64_t __dataMask[6];
@@ -200,17 +199,5 @@ const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t da
     default:
       break;
   }
-
-  for (int __i = 63; __i >= 0; --__i) {
-    bool __bit = (_sendData >> __i) & 1;
-    bool __crcMsb = (__crc >> 5) & 1;
-
-    __crc <<= 1;
-    if (__bit ^ __crcMsb) {
-      __crc ^= _poly;
-    }
-  }
-  __crc &= 0x3F;
-  _sendData = _sendData | __crc;
   return _sendData;
 }
