@@ -56,7 +56,7 @@ class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
     GraphData =  ''
     
-    def build(self):
+    def build(self):    #描画が始まる前の処理
         self.screen_manager = PageManager()
         self.settings_manager = SettingsManager()
         self.theme_cls.theme_style_switch_animation = True
@@ -70,20 +70,18 @@ class NativeGUIApp(MDApp):
 
         self.udp_thread = None
         
-        #Clock.schedule_interval(self.draw_graph, 1/30)
-        
         return self.screen_manager
-    def on_start(self):
+    
+    def on_start(self): #描画が始まったときの処理
         Window.maximize()
         self.screen_manager.get_screen('main').ids.nav_drawer.set_state("open")
-        self.navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu #ドロワーの描画範囲を取得
     
-    def on_stop(self):
+    def on_stop(self):  #描画が止まるときの処理
         stop_event.set()
         return True
     
     def start_communication(self):
-        """UDP通信を開始します。"""
+        """UDP通信を開始（スレッド）"""
         address_field = self.screen_manager.get_screen('start').ids.address_field
         address = address_field.text
         
@@ -115,8 +113,6 @@ class NativeGUIApp(MDApp):
         self.connect_button.disabled = False
         self.address_field.disabled = False
         self.progressindicator.active = False
-
-        self.graph_area.clear_widgets()
         
         stop_event.set()
         Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
@@ -155,39 +151,17 @@ class NativeGUIApp(MDApp):
             print(f"UDPクライアントエラー: {e}")
             self.stop_communication("UDPサーバーに接続できません")
 
-             
-    def switch_theme_style(self):
-        self.theme_cls.theme_style = (
-            "Dark" if self.theme_cls.theme_style == "Light" else "Light"
-        )
-        self.settings_manager.update_setting('theme', self.theme_cls.theme_style)
-        self.settings_manager.save_settings()
 
     def change_screen(self, screen_name):
         if screen_name == 'main':
-            self.added_widgets = []
-            actuater_num = len(json.loads(self.GraphData)['sensors'])
-            for actuater in range(actuater_num):
-                actuater_list = MDNavigationDrawerItem(MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater),id="actuater"))
-                self.added_widgets.append(actuater_list)
-                self.navigation_drawer.add_widget(actuater_list)
+            Clock.schedule_once(lambda x: self.update_drawer_menu())
+            
         else:
-            for widget in self.added_widgets:
-                self.navigation_drawer.ids.container.remove_widget(widget)
-                print("delete!")
+            #self.navigation_drawer.clear_widgets()
             self.graph_area.clear_widgets() #グラフを初期化
 
-        self.root.current = screen_name
 
-    def show_snackbar(self, message):
-        snackbar = MDSnackbar(
-            MDSnackbarText(
-                text=message,
-            ),
-            pos_hint={"center_x": 0.5, "center_y":0.1},
-            size_hint_x=0.5,
-        )
-        snackbar.open()
+        self.root.current = screen_name
         
     def update_graph(self, *args):
         data_dict = json.loads(self.GraphData)
@@ -198,7 +172,36 @@ class NativeGUIApp(MDApp):
                 # プロットを更新
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
+                
+    def update_drawer_menu(self):
+        navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
+        for child in navigation_drawer.children[:]:  # `[:]` でスライスしてコピーを作成
+            print(child)
+            if isinstance(child, MDNavigationDrawerItem):
+                navigation_drawer.remove_widget(child)
+                
+        actuater_num = len(json.loads(self.GraphData)['sensors'])
+        for actuater in range(actuater_num):
+            actuater_list = MDNavigationDrawerItem(MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater)))
+            navigation_drawer.add_widget(actuater_list)
             
+
+    def show_snackbar(self, message):
+        snackbar = MDSnackbar(
+            MDSnackbarText(
+                text=message,
+            ),
+            pos_hint={"center_x": 0.5, "center_y":0.1},
+            size_hint_x=0.5,
+        )
+        snackbar.open()
+    
+    def switch_theme_style(self):
+        self.theme_cls.theme_style = (
+            "Dark" if self.theme_cls.theme_style == "Light" else "Light"
+        )
+        self.settings_manager.update_setting('theme', self.theme_cls.theme_style)
+        self.settings_manager.save_settings()
     
 class SettingsManager:
     def __init__(self, filename='settings.json'):
