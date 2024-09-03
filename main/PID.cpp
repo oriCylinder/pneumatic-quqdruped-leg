@@ -5,11 +5,12 @@
 
 PID::PID(void) {
   _preTime = micros();
-  _prevPosErr = 0.0;
-  _prevVelErr = 0.0;
   _clipLimit.enable = false;
   setBaseGain(0.0, 0.0, 0.0);
   setGain(0.0, 0.0, 0.0);
+  for (int i = 0; i < 3; i++) {
+    _err[i] = 0;
+  }
 }
 
 void PID::setBaseGain(const float pBaseGain, const float iBaseGain, const float dBaseGain) {
@@ -33,19 +34,24 @@ const gainStruct& PID::getGain(void) const {
 
 float PID::calcCommand(const uint16_t targetPosition, const uint16_t currentPosition) {
   _nowTime = micros();
-  _dt = float(_nowTime - _preTime) / 1000000.0;
-  _posErr = float(targetPosition - currentPosition);
-  _velErr += (_posErr - _prevPosErr) * _dt;
-  _accErr = (_velErr - _prevVelErr) / _dt;
-  _prevPosErr = _posErr;
-  _prevVelErr = _velErr;
-  _command = _command + _gains.pCalcGain * _posErr + _gains.iCalcGain * _velErr + _gains.dCalcGain * _accErr;
+  _dt = double(_nowTime - _preTime) / 1000000.0;
+  _preTime = _nowTime;
+  for (int i = 0; i < 2; i++) {
+    _err[i + 1] = _err[i];
+  }
+  _err[0] = targetPosition - currentPosition;
+  _posErr = double(_err[0] - _err[1]);
+  _velErr = double(_err[0]) * _dt;
+  _accErr = double(_err[0] - _err[1] - _err[1] + _err[2]) / _dt;
+  _command = _command + float(_gains.pCalcGain * _posErr + _gains.iCalcGain * _velErr + _gains.dCalcGain * _accErr);
 
   if (_clipLimit.enable) {
     if (_command > _clipLimit.high) {
       _retCommand = _clipLimit.high;
     } else if (_command < _clipLimit.low) {
       _retCommand = _clipLimit.low;
+    } else {
+      _retCommand = _command;
     }
   } else {
     _retCommand = _command;
@@ -63,6 +69,6 @@ void PID::clipLimitDisable(const bool enable) {
   _clipLimit.enable = enable;
 }
 
-void PID::timeReset(void){
+void PID::timeReset(void) {
   _preTime = micros();
 }

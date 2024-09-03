@@ -30,12 +30,11 @@ private:
 
   uint32_t _nowTime;
   uint32_t _preTime;
-  float _posErr;
-  float _velErr;
-  float _accErr;
-  float _prevPosErr;
-  float _prevVelErr;
-  float _dt;
+  int16_t _err[3];
+  double _posErr;
+  double _velErr;
+  double _accErr;
+  double _dt;
   float _command;
   float _retCommand;
 };

@@ -1,7 +1,7 @@
 #include "DataPollAndParse.h"
 
 USBPolling::USBPolling()
-  : _mySerial(Serial0), _poly(0x3F) {}
+  : _mySerial(Serial0) {}
 
 void USBPolling::begin(const uint32_t baudRate) {
   _mySerial.begin(baudRate);
