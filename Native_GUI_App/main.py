@@ -2,14 +2,14 @@
 from kivymd.app import MDApp
 from kivy.lang import Builder
 from kivy.config import Config
+from kivy.core.window import Window
 Config.set('graphics', 'maxfps', 60)
-from kivymd.uix.label import MDLabel
-
 
 # GUIコンポーネント関連
 from kivymd.uix.card import MDCard
 from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
 from kivy.uix.boxlayout import BoxLayout
+from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDrawerItemText
 
 # Kivyフォント関連
 from kivy.core.text import LabelBase, DEFAULT_FONT
@@ -32,8 +32,8 @@ from kivymd.uix.screenmanager import MDScreenManager
 import json
 import socket
 import threading
-import queue
 import time
+import random
 
 stop_event = threading.Event()
 
@@ -54,7 +54,7 @@ class PageManager(MDScreenManager):
     
 class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
-    GraphData = ''
+    GraphData =  ''
     
     def build(self):
         self.screen_manager = PageManager()
@@ -73,6 +73,10 @@ class NativeGUIApp(MDApp):
         #Clock.schedule_interval(self.draw_graph, 1/30)
         
         return self.screen_manager
+    def on_start(self):
+        Window.maximize()
+        self.screen_manager.get_screen('main').ids.nav_drawer.set_state("open")
+        self.navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu #ドロワーの描画範囲を取得
     
     def on_stop(self):
         stop_event.set()
@@ -81,21 +85,29 @@ class NativeGUIApp(MDApp):
     def start_communication(self):
         """UDP通信を開始します。"""
         address_field = self.screen_manager.get_screen('start').ids.address_field
+        address = address_field.text
         
-        #ソケットをここで作っておく　名前を要変更
-        self.udpClntSock = socket(AF_INET, SOCK_DGRAM)
-        self.DstAddr = (DstIP,DstPort)   
-        self.udpClntSock.sendto(data, address)
+        #送り側のソケットを定義
+        self.dynamicUdpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #self.udpClntSock.sendto(data, (address,6050)) 送るとき
         
         self.udp_thread = None
         stop_event.clear()
-        
-        #self.data_queue = queue.Queue() #キューを作る
-        Clock.schedule_interval(self.draw_graph, 1/30)
+
+        self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
+        self.fig, self.ax = plt.subplots()
 
         if not self.udp_thread:
-            self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address_field.text,))
+            self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address,))
             self.udp_thread.start()
+
+    def switch_actuater(self):
+        """アクチュエータを変更・選択したとき"""
+        self.graph_area.clear_widgets() #グラフを初期化
+        self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
+
+        #グラフの描画
+        Clock.schedule_interval(self.update_graph, 0.5)
 
     def stop_communication(self, message):
         """UDPの通信を切断します。"""
@@ -103,6 +115,8 @@ class NativeGUIApp(MDApp):
         self.connect_button.disabled = False
         self.address_field.disabled = False
         self.progressindicator.active = False
+
+        self.graph_area.clear_widgets()
         
         stop_event.set()
         Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
@@ -123,16 +137,15 @@ class NativeGUIApp(MDApp):
             
             #初回のデータを受け取ったときの処理
             data, addr = self.udp_socket.recvfrom(4096)
+            self.GraphData = data.decode()
             print(f"Connected: {addr}")
             Clock.schedule_once(lambda x: self.change_screen('main'))
             
-            #グラフ描画
-            while not stop_event.is_set():
-                #self.data_queue.put(data)   #キューにデータを入れる
-                
+            #データの取得と変数への格納
+            while not stop_event.is_set():                
                 data, addr = self.udp_socket.recvfrom(4096)
                 self.GraphData = data.decode()
-                print(f"UDP 受信: {data.decode()}")
+                print(f"UDP 受信: {self.GraphData}")
                 
             self.udp_socket.close()
             self.udp_socket = None
@@ -151,6 +164,19 @@ class NativeGUIApp(MDApp):
         self.settings_manager.save_settings()
 
     def change_screen(self, screen_name):
+        if screen_name == 'main':
+            self.added_widgets = []
+            actuater_num = len(json.loads(self.GraphData)['sensors'])
+            for actuater in range(actuater_num):
+                actuater_list = MDNavigationDrawerItem(MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater),id="actuater"))
+                self.added_widgets.append(actuater_list)
+                self.navigation_drawer.add_widget(actuater_list)
+        else:
+            for widget in self.added_widgets:
+                self.navigation_drawer.ids.container.remove_widget(widget)
+                print("delete!")
+            self.graph_area.clear_widgets() #グラフを初期化
+
         self.root.current = screen_name
 
     def show_snackbar(self, message):
@@ -163,45 +189,16 @@ class NativeGUIApp(MDApp):
         )
         snackbar.open()
         
-    def draw_graph(self, dt):
-        self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
-        
-        x = np.linspace(-np.pi, np.pi, 100)
-        y = np.sin(x)
-        # 描画状態を保存するためのカウンタ
-        self.counter = 0
+    def update_graph(self, *args):
+        data_dict = json.loads(self.GraphData)
+        for sensor in data_dict['sensors']:
+            if sensor['num'] == 0:
+                plt.plot(sensor['position'])
 
-        # Figure, Axis を保存しておく
-        self.fig, self.ax = plt.subplots()
-        # 最初に描画したときの Line も保存しておく
-        self.line, = self.ax.plot(x, y)
-
-        # ウィジェットとしてグラフを追加する
-        widget = FigureCanvasKivyAgg(self.fig)
-        self.graph_area.clear_widgets()
-        self.graph_area.add_widget(widget)
-        
-        #label = MDLabel(text=self.GraphData)
-        
-        #self.graph_area.add_widget(label)
-        
-    def update_view(self, *args, **kwargs):
-        # データを更新する
-        self.counter += np.pi / 100  # 10 分の pi ずらす
-        # ずらした値を使ってデータを作る
-        x = np.linspace(-np.pi + self.counter,
-                        np.pi + self.counter,
-                        100)
-        y = np.sin(x)
-        # Line にデータを設定する
-        self.line.set_data(x, y)
-        # グラフの見栄えを調整する
-        self.ax.relim()
-        self.ax.autoscale_view()
-        # 再描画する
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-        
+                # プロットを更新
+                self.fig.canvas.draw()
+                self.fig.canvas.flush_events()
+            
     
 class SettingsManager:
     def __init__(self, filename='settings.json'):
@@ -229,7 +226,6 @@ class SettingsManager:
     def get_setting(self, key, default=None):
         """設定を取得します。指定されたキーが存在しない場合はデフォルト値を返します。"""
         return self.settings.get(key, default)
-        
     
 class NonInteractiveCard(MDCard):
     def __init__(self, **kwargs):
