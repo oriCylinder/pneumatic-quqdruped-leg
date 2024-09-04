@@ -55,6 +55,7 @@ class PageManager(MDScreenManager):
 class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
     GraphData =  ''
+    selected_actuater = ''
     
     def build(self):    #描画が始まる前の処理
         self.screen_manager = PageManager()
@@ -93,7 +94,7 @@ class NativeGUIApp(MDApp):
         stop_event.clear()
 
         self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
-        self.fig, self.ax = plt.subplots()
+        #self.fig, self.ax = plt.subplots()     #なぜかこれをするとアクティベートが外れる
 
         if not self.udp_thread:
             self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address,))
@@ -133,7 +134,7 @@ class NativeGUIApp(MDApp):
             while not stop_event.is_set():                
                 data, addr = self.udp_socket.recvfrom(4096)
                 self.GraphData = data.decode()
-                print(f"UDP 受信: {self.GraphData}")
+                #print(f"UDP 受信: {self.GraphData}")
                 
             self.udp_socket.close()
             self.udp_socket = None
@@ -150,18 +151,15 @@ class NativeGUIApp(MDApp):
             self.graph_area.clear_widgets() #グラフを初期化
         self.root.current = screen_name
         
-    def switch_actuater(self,num):
+    def switch_actuater(self, num, obj):
         """アクチュエータを変更・選択したとき"""
-
-        print("selectted{num}")
-
-        """
-        self.graph_area.clear_widgets() #グラフを初期化
-        self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
-
-        #グラフの描画
-        Clock.schedule_interval(self.update_graph, 0.5)
-        """
+        if self.selected_actuater != num:
+            self.selected_actuater = num
+            print(self.selected_actuater)
+            self.graph_area.clear_widgets() #グラフを初期化
+            self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
+            Clock.schedule_interval(self.update_graph, 0.5)
+        
 
     def update_graph(self, *args):
         data_dict = json.loads(self.GraphData)
@@ -182,9 +180,8 @@ class NativeGUIApp(MDApp):
 
         for actuater in range(actuater_num):
             actuater_list = MDNavigationDrawerItem(
-                MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater)), 
-                on_release=partial(self.switch_actuater, str(actuater))
-)
+                MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater)))
+            actuater_list.bind(on_release=partial(self.switch_actuater, str(actuater)))
             navigation_drawer.add_widget(actuater_list)
             
     def show_snackbar(self, message):
