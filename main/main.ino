@@ -1,24 +1,27 @@
 #include "Arduino.h"
 #include "ESP32Servo.h"
+#include "Preferences.h"
 
 #include "PID.h"
 #include "DataPollAndParse.h"
 
 //設定値
+const uint16_t PVCInterval = 33;                   //PVCの送信周期[ms]
 const uint8_t valveTotalNum = 4;                   //バルブ総数(MAX4)
 const uint8_t valvePins[4] = { 4, 0, 2, 15 };      //バルブのPWM出力ピン番号
 const uint8_t sensorPins[4] = { 26, 27, 14, 12 };  //センサーの入力ピン番号
 const float baseGainList[4][3] = {
-  { 0.005, 0.0005, 0.0005 },
-  { 0.005, 0.0005, 0.0005 },
-  { 0.005, 0.0005, 0.0005 },
-  { 0.005, 0.0005, 0.0005 }
+  { 0.0001, 0.00001, 0.00001 },
+  { 0.0001, 0.00001, 0.00001 },
+  { 0.0001, 0.00001, 0.00001 },
+  { 0.0001, 0.00001, 0.00001 }
 };  //ベースのゲインリスト - { pGain, iGain, dGain }
 
 //インスタンスの宣言
 Servo valve[valveTotalNum];   //サーボクラスの配列インスタンスを宣言
 PID vCommand[valveTotalNum];  //PIDクラスの配列インスタンスを宣言
 USBPolling pollData;          //USB通信クラスのインスタンスを宣言
+Preferences preferences;      //NVS用のインスタンスを宣言
 
 //戻り値を格納する変数
 float commandAry[valveTotalNum] = { 0 };            //バルブへのコマンドを格納する配列
@@ -28,14 +31,19 @@ uint16_t posAry[valveTotalNum][2] = { 0 };          //map後のポジション�
 uint16_t capturedValAry[valveTotalNum][2] = { 0 };  //キャプチャー電圧を格納する配列 - { stroke, offset }
 
 //その他変数
-const uint16_t PVCInterval = 33;  //PVCの送信周期[ms]
-uint32_t nowTime;                 //現在時刻を格納(PVCの定時送信に使用)
-uint32_t preTime;                 //前回時間を格納(PVCの定時送信に使用)
+uint32_t nowTime;  //現在時刻を格納(PVCの定時送信に使用)
+uint32_t preTime;  //前回時間を格納(PVCの定時送信に使用)
 
 //関数のプロトタイプ宣言
-void sendDataCGC(uint8_t num);  //CGCデータの送信
-void sendDataPVC(uint8_t num);  //PVCデータの送信
-void saveData(uint8_t num);     //データをEEPROMに保存(未実装)
+void sendDataCGC(uint8_t num);   //CGCデータの送信
+void sendDataPVC(uint8_t num);   //PVCデータの送信
+void saveData(uint8_t num);      //データをNVSに保存(未実装)
+void getGainNVS(uint8_t num);    //ゲインをNVSから読み出し、反映
+void getSCapNVS(uint8_t num);    //ストローク側キャプチャー値をNVSから読み出し
+void getOCapNVS(uint8_t num);    //オフセット側キャプチャー値をNVSから読み出し
+void writeGainNVS(uint8_t num);  //ゲインをNVSへ保存
+void writeSCapNVS(uint8_t num);  //ストローク側キャプチャー値をNVSへ保存
+void writeOCapNVS(uint8_t num);  //オフセット側キャプチャー値をNVSへ保存
 
 void setup() {
   //各インスタンスの初期設定
@@ -55,19 +63,25 @@ void setup() {
   }
 
   //USB通信クラスのインスタンスを初期設定
-  pollData.begin(115200);  //通信速度115200bpsで通信開始
+  pollData.begin(115200);  //通信速度115200bpsで通信開始]
+
+  for (int i = 0; i < valveTotalNum; ++i) {
+    getGainNVS(i);  //シリンダーiのゲインを保存値に換装
+    getSCapNVS(i);  //ストローク側キャプチャー値を保存値で更新
+    getOCapNVS(i);  //オフセット側キャプチャー値を保存値で更新
+  }
 
   preTime = millis();  //時間を初期化
 
-  //キャプチャー未実装のため仮の初期値を設定
-  capturedValAry[0][0] = { 2000 };
-  capturedValAry[0][1] = { 200 };
-  capturedValAry[1][0] = { 2000 };
-  capturedValAry[1][1] = { 200 };
-  capturedValAry[2][0] = { 2000 };
-  capturedValAry[2][1] = { 200 };
-  capturedValAry[3][0] = { 2000 };
-  capturedValAry[3][1] = { 200 };
+  // //キャプチャー未実装のため仮の初期値を設定
+  // capturedValAry[0][0] = { 2000 };
+  // capturedValAry[0][1] = { 200 };
+  // capturedValAry[1][0] = { 2000 };
+  // capturedValAry[1][1] = { 200 };
+  // capturedValAry[2][0] = { 2000 };
+  // capturedValAry[2][1] = { 200 };
+  // capturedValAry[3][0] = { 2000 };
+  // capturedValAry[3][1] = { 200 };
 }
 
 void loop() {
@@ -98,76 +112,85 @@ void loop() {
 
     //フォーマット番号ごとに処理を決定
     switch (parsedData.format) {
-      case 63:                                     //COMのとき
+      //COMのとき
+      case 63:
         for (int i = 0; i < valveTotalNum; i++) {  //バルブの個数だけ繰り返す
 
-          if (dataAry[i] = 0) {                   //もしシリンダーiのデータがcommand指示なら
+          if (dataAry[i] == 0) {                  //もしシリンダーiのデータがcommand指示なら
             commandFlagAry[i] = 1;                //コマンドフラグをcommandにする
             commandAry[i] = dataAry[i + 4] / 10;  //コマンドを送られてきたデータに設定(0-1800で受信するため10で割る)
 
-          } else if (dataAry[i] = 1) {      //もしシリンダーiのデータがposition指示なら
+          } else if (dataAry[i] == 1) {     //もしシリンダーiのデータがposition指示なら
             commandFlagAry[i] = 0;          //コマンドフラグをpositionにする
             posAry[i][0] = dataAry[i + 4];  //ポジション配列のtargetに送られてきたデータを格納
           }
         }
         break;
 
-      case 1:                                      //REQのとき
+        //REQのとき
+      case 1:
         for (int i = 0; i < valveTotalNum; i++) {  //バルブの個数だけ繰り返す
-
-          if (dataAry[i] = 1) {  //もしシリンダーiのCGC要求なら
-            sendDataCGC(i);      //シリンダーiのCGC送信関数を実行
+          if (dataAry[i] == 1) {                   //もしシリンダーiのCGC要求なら
+            sendDataCGC(i);                        //シリンダーiのCGC送信関数を実行
           }
         }
-        //セーブ用の処理を書く
-        // if (parsedData.field5) {
-        //   saveData(0);
-        // }
-        // if (parsedData.field6) {
-        //   saveData(1);
-        // }
-        // if (parsedData.field7) {
-        //   saveData(2);
-        // }
-        // if (parsedData.field8) {
-        //   saveData(3);
-        // }
+
+        for (int i = 0; i < valveTotalNum; i++) {  //バルブの個数だけ繰り返す
+          if (dataAry[i + 4] == 1) {               //もしシリンダーiのセーブ要求なら
+            saveData(i);                           //シリンダーiのデータセーブ関数を実行
+            sendDataCGC(i);                        //シリンダーiのCGC送信関数を実行
+          }
+        }
         break;
 
-      case 10:  //LGC1のとき
-        vCommand[0].setGain(static_cast<uint16_t>(parsedData.field1),
-                            static_cast<uint16_t>(parsedData.field2),
-                            static_cast<uint16_t>(parsedData.field3));  //シリンダー0のゲインを受信値に換装
+        //LGC1のとき
+      case 10:
+        vCommand[0].setGain(static_cast<uint16_t>(dataAry[0]),
+                            static_cast<uint16_t>(dataAry[1]),
+                            static_cast<uint16_t>(dataAry[2]));  //シリンダー0のゲインを受信値に換装
 
         sendDataCGC(0);  //シリンダー0のCGC送信関数を実行
         break;
 
       case 20:  //LGC2のとき
-        vCommand[1].setGain(static_cast<uint16_t>(parsedData.field1),
-                            static_cast<uint16_t>(parsedData.field2),
-                            static_cast<uint16_t>(parsedData.field3));  //シリンダー1のゲインを受信値に換装
+        vCommand[1].setGain(static_cast<uint16_t>(dataAry[0]),
+                            static_cast<uint16_t>(dataAry[1]),
+                            static_cast<uint16_t>(dataAry[2]));  //シリンダー1のゲインを受信値に換装
 
         sendDataCGC(1);  //シリンダー1のCGC送信関数を実行
         break;
 
-      case 30:  //LGC3のとき
-        vCommand[2].setGain(static_cast<uint16_t>(parsedData.field1),
-                            static_cast<uint16_t>(parsedData.field2),
-                            static_cast<uint16_t>(parsedData.field3));  //シリンダー2のゲインを受信値に換装
+        //LGC3のとき
+      case 30:
+        vCommand[2].setGain(static_cast<uint16_t>(dataAry[0]),
+                            static_cast<uint16_t>(dataAry[1]),
+                            static_cast<uint16_t>(dataAry[2]));  //シリンダー2のゲインを受信値に換装
 
         sendDataCGC(2);  //シリンダー2のCGC送信関数を実行
         break;
 
-      case 40:  //LGC4のとき
-        vCommand[3].setGain(static_cast<uint16_t>(parsedData.field1),
-                            static_cast<uint16_t>(parsedData.field2),
-                            static_cast<uint16_t>(parsedData.field3));  //シリンダー3のゲインを受信値に換装
+        //LGC4のとき
+      case 40:
+        vCommand[3].setGain(static_cast<uint16_t>(dataAry[0]),
+                            static_cast<uint16_t>(dataAry[1]),
+                            static_cast<uint16_t>(dataAry[2]));  //シリンダー3のゲインを受信値に換装
 
         sendDataCGC(3);  //シリンダー3のCGC送信関数を実行
         break;
 
-      case 50:  //CAPのとき
-        //キャプチャー用の処理を書く
+        //CAPのとき
+        if ((dataAry[4] + dataAry[5] != 2) && (dataAry[0] + dataAry[1] + dataAry[2] + dataAry[3] < 2)) {  //キャプチャー要求のダブりがないか検査
+          for (int i = 0; i < valveTotalNum; i++) {                                                       //バルブの個数だけ繰り返す
+            if (dataAry[i] == 1) {                                                                        //もしシリンダーiの要求なら
+              if (dataAry[4] == 1) {                                                                      //もしストローク側の要求なら
+                capturedValAry[i][0] = analogRead(sensorPins[i]);                                         //シリンダーiのストローク側キャプチャー値を更新
+              } else if (dataAry[5] == 1) {                                                               //もしオフセット側の要求なら
+                capturedValAry[i][1] = analogRead(sensorPins[i]);                                         //シリンダーiのオフセット側キャプチャー値を更新
+              }
+              sendDataCGC(i);  //シリンダーiのCGC送信関数を実行
+            }
+          }
+        }
         break;
 
       default:                         //それ以外の時(受信エラーまたは想定外のフォーマットを受信)
@@ -215,4 +238,55 @@ void sendDataPVC(uint8_t num) {
 }
 
 void saveData(uint8_t num) {
+  writeGainNVS(num);
+  writeSCapNVS(num);
+  writeOCapNVS(num);
+}
+
+void getGainNVS(uint8_t num) {
+  preferences.begin("myNVS", true);
+  vCommand[num].setGain(preferences.getUChar(("pGain" + String(num)).c_str(), 0),
+                        preferences.getUChar(("iGain" + String(num)).c_str(), 0),
+                        preferences.getUChar(("dGain" + String(num)).c_str(), 0));
+  preferences.end();
+}
+
+void getSCapNVS(uint8_t num) {
+  preferences.begin("myNVS", true);
+  capturedValAry[num][0] = preferences.getUShort(("sCapCal" + String(num)).c_str(), 2000);
+  preferences.end();
+}
+
+void getOCapNVS(uint8_t num) {
+  preferences.begin("myNVS", true);
+  capturedValAry[num][1] = preferences.getUShort(("oCapVal" + String(num)).c_str(), 200);
+  preferences.end();
+}
+
+void writeGainNVS(uint8_t num) {
+  const gainStruct& gain = vCommand[num].getGain();
+
+  preferences.begin("myNVS", false);
+  preferences.putUChar(("pGain" + String(num)).c_str(), gain.pGain);
+  preferences.putUChar(("iGain" + String(num)).c_str(), gain.iGain);
+  preferences.putUChar(("dGain" + String(num)).c_str(), gain.dGain);
+  preferences.end();
+
+  getGainNVS(num);
+}
+
+void writeSCapNVS(uint8_t num) {
+  preferences.begin("myNVS", false);
+  preferences.putUShort(("sCapCal" + String(num)).c_str(), capturedValAry[num][0]);
+  preferences.end();
+
+  getSCapNVS(num);
+}
+
+void writeOCapNVS(uint8_t num) {
+  preferences.begin("myNVS", false);
+  preferences.putUShort(("oCapCal" + String(num)).c_str(), capturedValAry[num][1]);
+  preferences.end();
+
+  getOCapNVS(num);
 }
