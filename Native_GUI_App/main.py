@@ -8,8 +8,7 @@ Config.set('graphics', 'maxfps', 60)
 # GUIコンポーネント関連
 from kivymd.uix.card import MDCard
 from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
-from kivy.uix.boxlayout import BoxLayout
-from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDrawerItemText
+from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDrawerItemText, MDNavigationDrawerLabel
 
 # Kivyフォント関連
 from kivy.core.text import LabelBase, DEFAULT_FONT
@@ -27,6 +26,7 @@ plt.rc('font', family="Noto Sans JP")
 # 画面遷移関連
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.screenmanager import MDScreenManager
+from functools import partial
 
 # 通信関連
 import json
@@ -99,14 +99,6 @@ class NativeGUIApp(MDApp):
             self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address,))
             self.udp_thread.start()
 
-    def switch_actuater(self):
-        """アクチュエータを変更・選択したとき"""
-        self.graph_area.clear_widgets() #グラフを初期化
-        self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
-
-        #グラフの描画
-        Clock.schedule_interval(self.update_graph, 0.5)
-
     def stop_communication(self, message):
         """UDPの通信を切断します。"""
         self.change_screen('start')
@@ -151,18 +143,26 @@ class NativeGUIApp(MDApp):
             print(f"UDPクライアントエラー: {e}")
             self.stop_communication("UDPサーバーに接続できません")
 
-
     def change_screen(self, screen_name):
         if screen_name == 'main':
-            Clock.schedule_once(lambda x: self.update_drawer_menu())
-            
+            Clock.schedule_once(lambda x: self.update_drawer_menu())      
         else:
-            #self.navigation_drawer.clear_widgets()
             self.graph_area.clear_widgets() #グラフを初期化
-
-
         self.root.current = screen_name
         
+    def switch_actuater(self,num):
+        """アクチュエータを変更・選択したとき"""
+
+        print("selectted{num}")
+
+        """
+        self.graph_area.clear_widgets() #グラフを初期化
+        self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
+
+        #グラフの描画
+        Clock.schedule_interval(self.update_graph, 0.5)
+        """
+
     def update_graph(self, *args):
         data_dict = json.loads(self.GraphData)
         for sensor in data_dict['sensors']:
@@ -175,17 +175,18 @@ class NativeGUIApp(MDApp):
                 
     def update_drawer_menu(self):
         navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
-        for child in navigation_drawer.children[:]:  # `[:]` でスライスしてコピーを作成
-            print(child)
-            if isinstance(child, MDNavigationDrawerItem):
-                navigation_drawer.remove_widget(child)
-                
+        navigation_drawer.children[0].clear_widgets()
         actuater_num = len(json.loads(self.GraphData)['sensors'])
+
+        navigation_drawer.add_widget(MDNavigationDrawerLabel(text="ActuaterList"))
+
         for actuater in range(actuater_num):
-            actuater_list = MDNavigationDrawerItem(MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater)))
+            actuater_list = MDNavigationDrawerItem(
+                MDNavigationDrawerItemText(text="アクチュエータ" + str(actuater)), 
+                on_release=partial(self.switch_actuater, str(actuater))
+)
             navigation_drawer.add_widget(actuater_list)
             
-
     def show_snackbar(self, message):
         snackbar = MDSnackbar(
             MDSnackbarText(
