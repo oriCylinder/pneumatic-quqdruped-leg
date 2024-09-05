@@ -117,7 +117,7 @@
                             
                             BoxLayout:
                                 orientation: "horizontal"
-                                spacing: "20dp"
+                                spacing: "10dp"
                                 NonInteractiveCard:
                                     id : graph_area
                                     style: "outlined"
@@ -126,7 +126,36 @@
                                     
                                 NonInteractiveCard:
                                     style: "outlined"
-                                    padding: "20dp"
+                                    BoxLayout:
+                                        orientation: "vertical"
+                                        padding: [20, 20, 20, 20]  # 左, 上, 右, 下の順にパディングを設定
+                                        spacing: 20  # 子ウィジェット間のスペーシングを設定
+                                        MDLabel:
+                                            text:"Gain調整"
+                                        MDTextField:
+                                            mode: "filled"
+                                            id: gain_p
+                                            MDTextFieldHintText:
+                                                text: "p"
+                                        MDTextField:
+                                            mode: "filled"
+                                            id: gain_i
+                                            MDTextFieldHintText:
+                                                text: "i"
+                                        MDTextField:
+                                            mode: "filled"
+                                            id: gain_d
+                                            MDTextFieldHintText:
+                                                text: "d"
+                                        BoxLayout:
+                                            size_hint_y: None  # 高さを自動的に調整
+                                            height: "48dp"  # ボタンの高さを指定
+                                            pos_hint: {"right": 1, "bottom": 1}  # 右下に配置
+                                            MDButton:
+                                                style: "filled"
+                                                id: gain_save
+                                                MDButtonText:
+                                                    text: "保存"
                             
                             BoxLayout:
                                 orientation: "horizontal"
@@ -136,6 +165,14 @@
                                     style: "outlined"
                                     padding: "20dp"
                                     size_hint_x: .3
+                                    BoxLayout:
+                                        orientation: "vertical"
+                                        padding: [20, 20, 20, 20]  # 左, 上, 右, 下の順にパディングを設定
+                                        spacing: 20  # 子ウィジェット間のスペーシングを設定
+                                        MDSwitch:
+                                        MDSwitch:
+                                        MDSwitch:
+
                                 NonInteractiveCard:
                                     style: "outlined"
                                     padding: "20dp"

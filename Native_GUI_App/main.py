@@ -18,6 +18,8 @@ LabelBase.register(DEFAULT_FONT, './font/NotoSansJP-Regular.ttf')
 import numpy as np
 from kivy.clock import Clock
 from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
+import matplotlib
+matplotlib.use('Agg')   #非アクティブになる現象を抑止
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 font_manager.fontManager.addfont("./font/NotoSansJP-Regular.ttf") #matplotlib
@@ -33,6 +35,7 @@ import json
 import socket
 import threading
 import time
+import datetime
 import random
 
 stop_event = threading.Event()
@@ -54,7 +57,7 @@ class PageManager(MDScreenManager):
     
 class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
-    GraphData =  ''
+    receive_data =  ''
     selected_actuater = ''
     
     def build(self):    #描画が始まる前の処理
@@ -68,6 +71,14 @@ class NativeGUIApp(MDApp):
         self.connect_button = self.screen_manager.get_screen('start').ids.connect_button
         self.address_field = self.screen_manager.get_screen('start').ids.address_field
         self.progressindicator = self.screen_manager.get_screen('start').ids.progressindicator
+
+        self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
+        self.fig = plt.figure()
+        self.ax = self.fig.add_axes([0,0,1,1])
+        self.x = [datetime.datetime.now() - datetime.timedelta(seconds=i*10) for i in range(50)]
+        self.x.reverse()
+        self.y = [0]*50
+        self.line, = self.ax.plot(self.x, self.y)
 
         self.udp_thread = None
         
@@ -92,9 +103,6 @@ class NativeGUIApp(MDApp):
         
         self.udp_thread = None
         stop_event.clear()
-
-        self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
-        #self.fig, self.ax = plt.subplots()     #なぜかこれをするとアクティベートが外れる
 
         if not self.udp_thread:
             self.udp_thread = threading.Thread(target=self.udp_receiver, args=(address,))
@@ -126,15 +134,16 @@ class NativeGUIApp(MDApp):
             
             #初回のデータを受け取ったときの処理
             data, addr = self.udp_socket.recvfrom(4096)
-            self.GraphData = data.decode()
+            self.receive_data = data.decode()
             print(f"Connected: {addr}")
             Clock.schedule_once(lambda x: self.change_screen('main'))
             
             #データの取得と変数への格納
             while not stop_event.is_set():                
                 data, addr = self.udp_socket.recvfrom(4096)
-                self.GraphData = data.decode()
-                #print(f"UDP 受信: {self.GraphData}")
+                self.receive_data = data.decode()
+                trans_data = json.loads(self.receive_data)
+                self.position = next((sensor['position'] for sensor in trans_data.get('sensors', []) if sensor.get('num') == 0), None)
                 
             self.udp_socket.close()
             self.udp_socket = None
@@ -155,26 +164,30 @@ class NativeGUIApp(MDApp):
         """アクチュエータを変更・選択したとき"""
         if self.selected_actuater != num:
             self.selected_actuater = num
-            print(self.selected_actuater)
+
             self.graph_area.clear_widgets() #グラフを初期化
             self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
             Clock.schedule_interval(self.update_graph, 0.5)
         
-
     def update_graph(self, *args):
-        data_dict = json.loads(self.GraphData)
-        for sensor in data_dict['sensors']:
-            if sensor['num'] == 0:
-                plt.plot(sensor['position'])
+        self.y.append(self.position) # y値の更新
+        self.y.pop(0) # 古いy値の削除
+        self.x.append(datetime.datetime.now()) # x値の更新
+        self.x.pop(0) # 古いx値の削除
 
-                # プロットを更新
-                self.fig.canvas.draw()
-                self.fig.canvas.flush_events()
+        self.line.set_ydata(self.y) # データの更新
+        self.line.set_xdata(self.x) # データの更新
+
+        self.ax.relim() # limitsを再計算
+        self.ax.autoscale_view() # スケールを更新
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
                 
     def update_drawer_menu(self):
         navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
         navigation_drawer.children[0].clear_widgets()
-        actuater_num = len(json.loads(self.GraphData)['sensors'])
+        actuater_num = len(json.loads(self.receive_data)['sensors'])
 
         navigation_drawer.add_widget(MDNavigationDrawerLabel(text="ActuaterList"))
 
@@ -233,8 +246,6 @@ class NonInteractiveCard(MDCard):
         super().__init__(**kwargs)
         self.padding = [20, 20, 20, 20]  # 左、上、右、下の順に余白を設定
     def set_properties_widget(self):
-        return False
-    def on_touch_down(self,touch):
         return False
 
 if __name__ == '__main__':
