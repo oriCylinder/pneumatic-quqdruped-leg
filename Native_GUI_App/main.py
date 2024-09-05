@@ -57,8 +57,8 @@ class PageManager(MDScreenManager):
     
 class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
-    receive_data =  ''
-    selected_actuater = ''
+    trans_data =  ''
+    selected_actuater = 0
     
     def build(self):    #描画が始まる前の処理
         self.screen_manager = PageManager()
@@ -73,12 +73,6 @@ class NativeGUIApp(MDApp):
         self.progressindicator = self.screen_manager.get_screen('start').ids.progressindicator
 
         self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
-        self.fig = plt.figure()
-        self.ax = self.fig.add_axes([0,0,1,1])
-        self.x = [datetime.datetime.now() - datetime.timedelta(seconds=i*10) for i in range(50)]
-        self.x.reverse()
-        self.y = [0]*50
-        self.line, = self.ax.plot(self.x, self.y)
 
         self.udp_thread = None
         
@@ -141,9 +135,12 @@ class NativeGUIApp(MDApp):
             #データの取得と変数への格納
             while not stop_event.is_set():                
                 data, addr = self.udp_socket.recvfrom(4096)
-                self.receive_data = data.decode()
-                trans_data = json.loads(self.receive_data)
-                self.position = next((sensor['position'] for sensor in trans_data.get('sensors', []) if sensor.get('num') == 0), None)
+                receive_data = data.decode()
+                self.trans_data = json.loads(receive_data)
+                
+                self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                 
             self.udp_socket.close()
             self.udp_socket = None
@@ -164,22 +161,49 @@ class NativeGUIApp(MDApp):
         """アクチュエータを変更・選択したとき"""
         if self.selected_actuater != num:
             self.selected_actuater = num
-
+            
+            if hasattr(self, 'update_event'):
+                Clock.unschedule(self.update_event)
+                
             self.graph_area.clear_widgets() #グラフを初期化
+            self.fig = plt.figure()
+            self.fig, self.ax = plt.subplots()
+            self.fig.patch.set_alpha(0)
+            self.ax.patch.set_alpha(0)
+            
+            self.x = list(range(200))
+            self.y1 = [0] * 200
+            self.y2 = [0] * 200
+            self.y3 = [0] * 200
+            
+            self.pos_line, = self.ax.plot(self.x, self.y1, label="Position")  # 1本目の線
+            self.vol_line, = self.ax.plot(self.x, self.y2, label="Voltage")  # 2本目の線
+            self.com_line, = self.ax.plot(self.x, self.y3, label="Command")  # 3本目の線
+            
+            self.ax.get_xaxis().set_visible(False)
+            
             self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
-            Clock.schedule_interval(self.update_graph, 0.5)
+            self.update_event = Clock.schedule_interval(self.update_graph, 0.01)
         
     def update_graph(self, *args):
-        self.y.append(self.position) # y値の更新
-        self.y.pop(0) # 古いy値の削除
-        self.x.append(datetime.datetime.now()) # x値の更新
-        self.x.pop(0) # 古いx値の削除
+        # 1本目の線のy値の更新
+        self.y1.append(self.position)  # y1値の更新
+        self.y1.pop(0)  # 古いy1値の削除
 
-        self.line.set_ydata(self.y) # データの更新
-        self.line.set_xdata(self.x) # データの更新
+        # 2本目の線のy値の更新（例としてself.positionに0.5を足した値）
+        self.y2.append(self.voltage)  # y2値の更新
+        self.y2.pop(0)  # 古いy2値の削除
+        
+        self.y3.append(self.command)  # y2値の更新
+        self.y3.pop(0)  # 古いy2値の削除
 
-        self.ax.relim() # limitsを再計算
-        self.ax.autoscale_view() # スケールを更新
+        # 各線のデータを更新
+        self.pos_line.set_ydata(self.y1)
+        self.vol_line.set_ydata(self.y2)
+        self.com_line.set_ydata(self.y3)
+
+        self.ax.relim()  # limitsを再計算
+        self.ax.autoscale_view()  # スケールを更新
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
@@ -187,7 +211,7 @@ class NativeGUIApp(MDApp):
     def update_drawer_menu(self):
         navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
         navigation_drawer.children[0].clear_widgets()
-        actuater_num = len(json.loads(self.receive_data)['sensors'])
+        actuater_num = len(self.trans_data['sensors'])
 
         navigation_drawer.add_widget(MDNavigationDrawerLabel(text="ActuaterList"))
 

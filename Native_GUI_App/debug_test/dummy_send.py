@@ -9,7 +9,7 @@ def generate_data():
     return {
         "type":"current_sensor_value",
         "sensors": [
-            {"num": i, "position": random.randint(0, 4095), "voltage": random.randint(0, 4095), "command": random.randint(0, 4095)} 
+            {"num": i, "position": random.randint(0, 40), "voltage": random.randint(0, 4095), "command": random.randint(0, 4095)} 
             for i in range(5)  # 例として5個のセンサー
         ]
     }
@@ -31,7 +31,7 @@ def udp_server():
         json_data = json.dumps(data)
         udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
         print(f"UDP送信: {json_data}")
-        time.sleep(1)
+        time.sleep(0.01)
     
     udp_socket.close()
     print("UDPサーバーを終了しました。")
