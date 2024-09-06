@@ -31,7 +31,7 @@ def udp_server():
         json_data = json.dumps(data)
         udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
         print(f"UDP送信: {json_data}")
-        time.sleep(0.01)
+        time.sleep(0.1)
     
     udp_socket.close()
     print("UDPサーバーを終了しました。")

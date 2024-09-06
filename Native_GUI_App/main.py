@@ -93,7 +93,6 @@ class NativeGUIApp(MDApp):
         
         #送り側のソケットを定義
         self.dynamicUdpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #self.udpClntSock.sendto(data, (address,6050)) 送るとき
         
         self.udp_thread = None
         stop_event.clear()
@@ -108,6 +107,10 @@ class NativeGUIApp(MDApp):
         self.connect_button.disabled = False
         self.address_field.disabled = False
         self.progressindicator.active = False
+        if hasattr(self, 'update_event'):
+            Clock.unschedule(self.update_event)
+
+        self.graph_area.clear_widgets() #グラフを初期化
         
         stop_event.set()
         Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
@@ -126,14 +129,20 @@ class NativeGUIApp(MDApp):
             self.udp_socket.bind((address, 6050))
             print("UDPでサーバーからのメッセージを受信中...")
             
-            #初回のデータを受け取ったときの処理
-            data, addr = self.udp_socket.recvfrom(4096)
-            self.receive_data = data.decode()
+            #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
+            while not stop_event.is_set():
+                data, addr = self.udp_socket.recvfrom(4096)
+                receive_data = data.decode()
+                self.trans_data = json.loads(receive_data)
+                if self.trans_data['type'] == "current_sensor_value":
+                    break
+                
             print(f"Connected: {addr}")
+            #PVCデータを受け取ったら画面遷移
             Clock.schedule_once(lambda x: self.change_screen('main'))
             
             #データの取得と変数への格納
-            while not stop_event.is_set():                
+            while not stop_event.is_set():              
                 data, addr = self.udp_socket.recvfrom(4096)
                 receive_data = data.decode()
                 self.trans_data = json.loads(receive_data)
@@ -147,15 +156,27 @@ class NativeGUIApp(MDApp):
             print("切断しました")
 
         except Exception as e:
-            print(f"UDPクライアントエラー: {e}")
-            self.stop_communication("UDPサーバーに接続できません")
+            error_message = f"UDPクライアントエラー: {e}"
+            print(error_message)
+            Clock.schedule_once(lambda x: self.stop_communication(error_message))
 
     def change_screen(self, screen_name):
         if screen_name == 'main':
-            Clock.schedule_once(lambda x: self.update_drawer_menu())      
-        else:
-            self.graph_area.clear_widgets() #グラフを初期化
+            Clock.schedule_once(lambda x: self.update_drawer_menu())
+
         self.root.current = screen_name
+    
+    def send_target(self):
+        #ここでjsonデータを送る（スライダーが動いたら発火する）
+        #初期値の取得→既存値と現在地の比較→変更があれば送信        
+        data = 'typeとnumとtarget'
+        self.udpClntSock.sendto(data, (self.address,6050)) 
+
+    def request_gain(self):
+        #ここでjsonデータを送る（アクチュエータが切り替わったら発火する）
+        #初期値の取得→既存値と現在地の比較→変更があれば送信
+        data = 'typeとnum'
+        self.udpClntSock.sendto(data, (self.address,6050)) 
         
     def switch_actuater(self, num, obj):
         """アクチュエータを変更・選択したとき"""
@@ -183,7 +204,7 @@ class NativeGUIApp(MDApp):
             self.ax.get_xaxis().set_visible(False)
             
             self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
-            self.update_event = Clock.schedule_interval(self.update_graph, 0.01)
+            self.update_event = Clock.schedule_interval(self.update_graph, 1/30)
         
     def update_graph(self, *args):
         # 1本目の線のy値の更新
