@@ -154,6 +154,7 @@
                                             MDButton:
                                                 style: "filled"
                                                 id: gain_save
+                                                on_release: app.gain_save()
                                                 MDButtonText:
                                                     text: "保存"
                             
@@ -170,16 +171,24 @@
                                         padding: [20, 20, 20, 20]  # 左, 上, 右, 下の順にパディングを設定
                                         spacing: 20  # 子ウィジェット間のスペーシングを設定
                                         MDSwitch:
+                                            thumb_color_active: "blue"
                                         MDSwitch:
+                                            track_color_active: "orange"
                                         MDSwitch:
+                                            track_color_active: "green"
 
                                 NonInteractiveCard:
                                     style: "outlined"
                                     padding: "20dp"
-                                    MDSlider:
-                                        min: 0
-                                        max: 4095
-                                        step: 1
-                                        value: 0
-                                        on_value: app.slider_value = str(int(self.value))
-                                        MDSliderHandle:
+                                    BoxLayout:
+                                        orientation: "vertical"
+                                        MDLabel:
+                                            text:"Taget指定"
+                                        MDSlider:
+                                            id: target_slider
+                                            min: 0
+                                            max: 4095
+                                            value: 2000
+                                            on_value: app.slider_value = str(int(self.value))
+                                            MDSliderHandle:
+                                            MDSliderValueLabel:

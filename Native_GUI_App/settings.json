@@ -1,7 +1,7 @@
 {
     "address": "localhost",
     "theme": "Light",
-    "color": "Yellow",
+    "color": "Red",
     "actuater_name": {
         "0": "front right hip",
         "1": "front right knee",
@@ -12,5 +12,4 @@
         "6": "rear left hip",
         "7": "rear left knee"
     }
-        
 }

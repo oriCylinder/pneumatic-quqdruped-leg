@@ -9,8 +9,8 @@ def generate_data():
     return {
         "type":"current_sensor_value",
         "sensors": [
-            {"num": i, "position": random.randint(0, 40), "voltage": random.randint(0, 4095), "command": random.randint(0, 4095)} 
-            for i in range(5)  # 例として5個のセンサー
+            {"num": i, "position": random.randint(0, 4095), "voltage": random.randint(0, 4095), "command": random.randint(0, 4095)} 
+            for i in range(10)  # 例として5個のセンサー
         ]
     }
 
