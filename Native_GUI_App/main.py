@@ -34,9 +34,6 @@ from functools import partial
 import json
 import socket
 import threading
-import time
-import datetime
-import random
 
 stop_event = threading.Event()
 
@@ -63,24 +60,37 @@ class NativeGUIApp(MDApp):
     def build(self):    #描画が始まる前の処理
         self.screen_manager = PageManager()
         self.settings_manager = SettingsManager()
+        
+        #System Component
         self.theme_cls.theme_style_switch_animation = True
         self.theme_cls.theme_style = self.settings_manager.get_setting('theme')
         self.theme_cls.primary_palette = self.settings_manager.get_setting('color')
         self.actuater_name = self.settings_manager.get_setting('actuater_name')
+        
+        #Start Screen Component
         self.screen_manager.get_screen('start').ids.address_field.text = self.settings_manager.get_setting('address')
-
         self.connect_button = self.screen_manager.get_screen('start').ids.connect_button
         self.address_field = self.screen_manager.get_screen('start').ids.address_field
         self.progressindicator = self.screen_manager.get_screen('start').ids.progressindicator
-
+        
+        #Main Screen Component
         self.graph_area = self.screen_manager.get_screen('main').ids.graph_area
-        self.save_button = self.screen_manager.get_screen('main').ids.gain_save
+        self.position_switch = self.screen_manager.get_screen('main').ids.position_switch
+        self.voltage_switch = self.screen_manager.get_screen('main').ids.voltage_switch
+        self.command_switch = self.screen_manager.get_screen('main').ids.command_switch
+        # Main Screen Locked Component
+        self.gain_reload = self.screen_manager.get_screen('main').ids.gain_reload
         self.p_field = self.screen_manager.get_screen('main').ids.gain_p
         self.i_field = self.screen_manager.get_screen('main').ids.gain_i
         self.d_field = self.screen_manager.get_screen('main').ids.gain_d
+        self.p_send = self.screen_manager.get_screen('main').ids.p_send
+        self.i_send = self.screen_manager.get_screen('main').ids.i_send
+        self.d_send = self.screen_manager.get_screen('main').ids.d_send
+        self.save_button = self.screen_manager.get_screen('main').ids.gain_save
+        self.position_slider = self.screen_manager.get_screen('main').ids.position_slider
+        self.command_slider = self.screen_manager.get_screen('main').ids.command_slider
+        self.capture = self.screen_manager.get_screen('main').ids.capture
         
-        self.save_button.disabled = True
-
         self.udp_thread = None
         
         return self.screen_manager
@@ -88,6 +98,8 @@ class NativeGUIApp(MDApp):
     def on_start(self): #描画が始まったときの処理
         Window.maximize()
         self.screen_manager.get_screen('main').ids.nav_drawer.set_state("open")
+        self.fig = plt.figure()
+        self.fig, self.ax = plt.subplots()
         
     
     def on_stop(self):  #描画が止まるときの処理
@@ -115,6 +127,13 @@ class NativeGUIApp(MDApp):
         self.connect_button.disabled = False
         self.address_field.disabled = False
         self.progressindicator.active = False
+        
+        self.position_slider.disabled = False
+        self.command_slider.disabled = False
+        self.capture.disabled = False
+        
+        self.switch_gain_window(False)
+        
         if hasattr(self, 'update_event'):
             Clock.unschedule(self.update_event)
 
@@ -160,10 +179,12 @@ class NativeGUIApp(MDApp):
                     self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                     self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                 elif self.trans_data['type'] == "response_gain_value":
-                    print("response")
-                    self.p = next((gain['p'] for gain in self.trans_data.get('gains', []) if gain.get('num') == int(self.selected_actuater)), None)
-                    self.i = next((gain['i'] for gain in self.trans_data.get('gains', []) if gain.get('num') == int(self.selected_actuater)), None)
-                    self.d = next((gain['d'] for gain in self.trans_data.get('gains', []) if gain.get('num') == int(self.selected_actuater)), None)
+                    self.p = self.trans_data.get("gains", {}).get("p", None)
+                    self.i = self.trans_data.get("gains", {}).get("i", None)
+                    self.d = self.trans_data.get("gains", {}).get("d", None)
+                    self.capture_max = self.trans_data.get("capture", {}).get("max", None)
+                    self.capture_min = self.trans_data.get("capture", {}).get("min", None)
+                    Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
                 
             self.udp_socket.close()
             self.udp_socket = None
@@ -179,22 +200,68 @@ class NativeGUIApp(MDApp):
             Clock.schedule_once(lambda x: self.update_drawer_menu())
 
         self.root.current = screen_name
+    
+    def switch_gain_window(self, switch):
+        self.gain_reload.disabled = switch
+        self.p_field.disabled = switch
+        self.i_field.disabled = switch
+        self.d_field.disabled = switch
+        self.p_send.disabled = switch
+        self.i_send.disabled = switch
+        self.d_send.disabled = switch
+        self.d_send.disabled = switch
+        self.save_button.disabled = switch
+        
+    def gain_request(self):     #4.1
+        self.switch_gain_window(True)
+        data = {"type": "request_gain_value", "num": self.selected_actuater}
+        self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+        print(data)
+        
+    def gain_sync(self,p,i,d): #1.4/4.4/5.4/6.4/7.4
+        self.p_field.text = p
+        self.i_field.text = i
+        self.d_field.text = d
+        self.switch_gain_window(False)
+        
 
-    def gain_save(self):
-        request_p = self.p_field.text
-        request_i = self.i_field.text
-        request_d = self.d_field.text
-        data = {"type":"set_gain_value","gains":{"num":self.selected_actuater,"p":request_p,"i":request_i,"d":request_d}}
+    def gain_change(self, gain):    #7.1
+        #self.switch_gain_window(True) #入力を禁止します
+        gain_values = {"p": self.p_field.text, "i": self.i_field.text, "d": self.d_field.text}
+        # 指定された gain のみを格納
+        if gain_values.get(gain) != '':
+            data = {"type": "set_gain_value", "num": self.selected_actuater, gain: gain_values.get(gain)}
+            # UDP送信
+            self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+            print(data)
+        
+    def gain_save(self):    #5.1
+        self.switch_gain_window(True)
+        data = {"type":"request_gain_save","num":self.selected_actuater}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
+        print(data)
+        
+    def req_capture(self):  #6.1
+        data = {"type":"request_capture","num":self.selected_actuater}
+        self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
+        print(data)
         
     def switch_actuater(self, num, obj):
         """アクチュエータを変更・選択したとき"""
         if self.selected_actuater != num:
             self.selected_actuater = num
+            self.gain_request()
+            self.position_slider.disabled = False
+            self.command_slider.disabled = False
+            self.capture.disabled = False
             position = self.position
-            self.screen_manager.get_screen('main').ids.target_slider.value = position
-            self.before_slider_value = position
-            self.slider_value = position
+            command = self.command
+            self.screen_manager.get_screen('main').ids.position_slider.value = position
+            self.screen_manager.get_screen('main').ids.command_slider.value = command
+            self.before_slider_position = position
+            self.before_slider_command = command
+            self.slider_position = position
+            self.slider_command = command
             
             if hasattr(self, 'update_event'):
                 Clock.unschedule(self.update_event)
@@ -230,15 +297,16 @@ class NativeGUIApp(MDApp):
     def loop_30fps(self, *args):
         """グラフの更新"""
         # 1本目の線のy値の更新
-        self.y1.append(self.position)  # y1値の更新
+        self.y1.append(self.position) if self.position_switch.active == True else self.y1.append(None) # y1値の更新
         self.y1.pop(0)  # 古いy1値の削除
 
         # 2本目の線のy値の更新
-        self.y2.append(self.voltage)  # y2値の更新
+        self.y2.append(self.voltage) if self.voltage_switch.active == True else self.y2.append(None) # y2値の更新
         self.y2.pop(0)  # 古いy2値の削除
         
-        self.y3.append(self.command)  # y2値の更新
-        self.y3.pop(0)  # 古いy2値の削除
+        # 3本目の線のy値の更新
+        self.y3.append(self.command) if self.command_switch.active == True else self.y3.append(None) # y3値の更新
+        self.y3.pop(0)  # 古いy3値の削除
 
         # 各線のデータを更新
         self.pos_line.set_ydata(self.y1)
@@ -252,10 +320,12 @@ class NativeGUIApp(MDApp):
         self.fig.canvas.flush_events()
         
         """Target送信"""
-        if self.before_slider_value != self.slider_value:
-            data = {"type":"set_target_value","target":{"num":self.selected_actuater,"position":self.slider_value}}
+        if self.before_slider_position != self.slider_position or self.before_slider_command != self.slider_command:
+            data = {"type":"set_target_value","target":{"num":self.selected_actuater,"position":self.slider_position, "command": self.slider_command}}
             self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
-        self.before_slider_value = self.slider_value
+            print(data)
+        self.before_slider_position = self.slider_position
+        self.before_slider_command = self.slider_command
                 
     def update_drawer_menu(self):
         navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu

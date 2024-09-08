@@ -130,30 +130,80 @@
                                         orientation: "vertical"
                                         padding: [20, 20, 20, 20]  # 左, 上, 右, 下の順にパディングを設定
                                         spacing: 20  # 子ウィジェット間のスペーシングを設定
-                                        MDLabel:
-                                            text:"Gain調整"
-                                        MDTextField:
-                                            mode: "filled"
-                                            id: gain_p
-                                            MDTextFieldHintText:
-                                                text: "p"
-                                        MDTextField:
-                                            mode: "filled"
-                                            id: gain_i
-                                            MDTextFieldHintText:
-                                                text: "i"
-                                        MDTextField:
-                                            mode: "filled"
-                                            id: gain_d
-                                            MDTextFieldHintText:
-                                                text: "d"
                                         BoxLayout:
-                                            size_hint_y: None  # 高さを自動的に調整
-                                            height: "48dp"  # ボタンの高さを指定
-                                            pos_hint: {"right": 1, "bottom": 1}  # 右下に配置
+                                            orientation: "horizontal"
+                                            MDLabel:
+                                                text:"Gain"
+                                            MDIconButton:
+                                                id: gain_reload
+                                                disabled : "True"
+                                                pos_hint: {"right":1}
+                                                on_release: app.gain_request()
+                                                icon: "reload"
+                                                style: "standard"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDTextField:
+                                                mode: "filled"
+                                                id: gain_p
+                                                disabled : "True"
+                                                input_filter: "float"
+                                                MDTextFieldHintText:
+                                                    text: "p"
+                                            MDButton:
+                                                style: "elevated"
+                                                id: p_send
+                                                disabled : "True"
+                                                pos_hint: {'center_y': 0.5}
+                                                on_release: app.gain_change('p')
+                                                MDButtonText:
+                                                    text: "変更"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDTextField:
+                                                mode: "filled"
+                                                id: gain_i
+                                                disabled : "True"
+                                                input_filter: "float"
+                                                MDTextFieldHintText:
+                                                    text: "i"
+                                            MDButton:
+                                                style: "elevated"
+                                                id: i_send
+                                                disabled : "True"
+                                                pos_hint: {'center_y': 0.5}
+                                                on_release: app.gain_change('i')
+                                                MDButtonText:
+                                                    text: "変更"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDTextField:
+                                                mode: "filled"
+                                                id: gain_d
+                                                disabled : "True"
+                                                input_filter: "float"
+                                                MDTextFieldHintText:
+                                                    text: "d"
+                                            MDButton:
+                                                style: "elevated"
+                                                id: d_send
+                                                disabled : "True"
+                                                pos_hint: {'center_y': 0.5}
+                                                on_release: app.gain_change('d')
+                                                MDButtonText:
+                                                    text: "変更"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            MDLabel:
+                                                text:"Gain書込"
                                             MDButton:
                                                 style: "filled"
                                                 id: gain_save
+                                                disabled : "True"
+                                                pos_hint: {"right":1}
                                                 on_release: app.gain_save()
                                                 MDButtonText:
                                                     text: "保存"
@@ -170,12 +220,36 @@
                                         orientation: "vertical"
                                         padding: [20, 20, 20, 20]  # 左, 上, 右, 下の順にパディングを設定
                                         spacing: 20  # 子ウィジェット間のスペーシングを設定
-                                        MDSwitch:
-                                            thumb_color_active: "blue"
-                                        MDSwitch:
-                                            track_color_active: "orange"
-                                        MDSwitch:
-                                            track_color_active: "green"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDSwitch:
+                                                id: position_switch
+                                                pos_hint: {'center_y': 0.5}
+                                                track_color_active: "blue"
+                                                active: True
+                                            MDLabel:
+                                                text:"Position"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDSwitch:
+                                                id: voltage_switch
+                                                pos_hint: {'center_y': 0.5}
+                                                track_color_active: "orange"
+                                                active: True
+                                            MDLabel:
+                                                text:"Voltage"
+                                        BoxLayout:
+                                            orientation: "horizontal"
+                                            spacing: 20
+                                            MDSwitch:
+                                                id: command_switch
+                                                pos_hint: {'center_y': 0.5}
+                                                track_color_active: "green"
+                                                active: True
+                                            MDLabel:
+                                                text:"Command"
 
                                 NonInteractiveCard:
                                     style: "outlined"
@@ -183,12 +257,32 @@
                                     BoxLayout:
                                         orientation: "vertical"
                                         MDLabel:
-                                            text:"Taget指定"
+                                            text:"Target->Position"
                                         MDSlider:
-                                            id: target_slider
+                                            id: position_slider
+                                            disabled : "True"
                                             min: 0
                                             max: 4095
                                             value: 2000
-                                            on_value: app.slider_value = str(int(self.value))
+                                            on_value: app.slider_position = str(int(self.value))
                                             MDSliderHandle:
                                             MDSliderValueLabel:
+                                        MDLabel:
+                                            text:"Target->Command"
+                                        MDSlider:
+                                            id: command_slider
+                                            disabled : "True"
+                                            min: 0
+                                            max: 4095
+                                            value: 2000
+                                            on_value: app.slider_command = str(int(self.value))
+                                            MDSliderHandle:
+                                            MDSliderValueLabel:
+                                        MDButton:
+                                            style: "filled"
+                                            id: capture
+                                            disabled : "True"
+                                            pos_hint: {"right":1}
+                                            on_release: app.req_capture()
+                                            MDButtonText:
+                                                text: "キャプチャ"

@@ -1,7 +1,7 @@
 {
     "address": "localhost",
     "theme": "Light",
-    "color": "Red",
+    "color": "Green",
     "actuater_name": {
         "0": "front right hip",
         "1": "front right knee",
