@@ -5,12 +5,11 @@ import random
 import threading
 
 # サンプルデータの作成
-def generate_data():
+def generate_data(i):
     return {
         "type":"current_sensor_value",
         "sensors": [
             {"num": i, "position": random.randint(0, 4095), "voltage": random.randint(0, 4095), "command": random.randint(0, 4095)} 
-            for i in range(10)  # 例として5個のセンサー
         ]
     }
 
@@ -25,12 +24,16 @@ def udp_server():
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     #udp_socket.bind((IP, UDP_PORT))
     print("UDPサーバーが待機中...")
+    i = 0
     
     while not stop_event.is_set():
-        data = generate_data()
+        if i == 4:
+            i = 0
+        data = generate_data(i)
         json_data = json.dumps(data)
         udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
         print(f"UDP送信: {json_data}")
+        i+=1
         time.sleep(0.1)
     
     udp_socket.close()

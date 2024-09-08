@@ -89,7 +89,8 @@ class NativeGUIApp(MDApp):
         self.save_button = self.screen_manager.get_screen('main').ids.gain_save
         self.position_slider = self.screen_manager.get_screen('main').ids.position_slider
         self.command_slider = self.screen_manager.get_screen('main').ids.command_slider
-        self.capture = self.screen_manager.get_screen('main').ids.capture
+        self.offset_capture = self.screen_manager.get_screen('main').ids.offset_capture
+        self.stroke_capture = self.screen_manager.get_screen('main').ids.stroke_capture
         
         self.udp_thread = None
         
@@ -128,11 +129,12 @@ class NativeGUIApp(MDApp):
         self.address_field.disabled = False
         self.progressindicator.active = False
         
-        self.position_slider.disabled = False
-        self.command_slider.disabled = False
-        self.capture.disabled = False
+        self.position_slider.disabled = True
+        self.command_slider.disabled = True
+        self.offset_capture.disabled = True
+        self.stroke_capture.disabled = True
         
-        self.switch_gain_window(False)
+        self.switch_gain_window(True)
         
         if hasattr(self, 'update_event'):
             Clock.unschedule(self.update_event)
@@ -154,7 +156,7 @@ class NativeGUIApp(MDApp):
         try:
             self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.udp_socket.settimeout(3)
-            self.udp_socket.bind((address, 6050))
+            self.udp_socket.bind(("0.0.0.0", 6050))
             print("UDPでサーバーからのメッセージを受信中...")
             
             #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
@@ -174,7 +176,7 @@ class NativeGUIApp(MDApp):
                 data, addr = self.udp_socket.recvfrom(4096)
                 receive_data = data.decode()
                 self.trans_data = json.loads(receive_data)
-                if self.trans_data['type'] == "current_sensor_value":
+                if self.trans_data['type'] == "current_sensor_value" and self.trans_data["sensors"][0]["num"] == 0:
                     self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                     self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                     self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
@@ -230,6 +232,7 @@ class NativeGUIApp(MDApp):
         gain_values = {"p": self.p_field.text, "i": self.i_field.text, "d": self.d_field.text}
         # 指定された gain のみを格納
         if gain_values.get(gain) != '':
+            self.switch_gain_window(True)
             data = {"type": "set_gain_value", "num": self.selected_actuater, gain: gain_values.get(gain)}
             # UDP送信
             self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
@@ -241,8 +244,8 @@ class NativeGUIApp(MDApp):
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
         print(data)
         
-    def req_capture(self):  #6.1
-        data = {"type":"request_capture","num":self.selected_actuater}
+    def req_capture(self,capture_type):  #6.1
+        data = {"type":"request_capture","num":self.selected_actuater, "capture": capture_type}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
         print(data)
         
@@ -253,7 +256,8 @@ class NativeGUIApp(MDApp):
             self.gain_request()
             self.position_slider.disabled = False
             self.command_slider.disabled = False
-            self.capture.disabled = False
+            self.offset_capture.disabled = False
+            self.stroke_capture.disabled = False
             position = self.position
             command = self.command
             self.screen_manager.get_screen('main').ids.position_slider.value = position
