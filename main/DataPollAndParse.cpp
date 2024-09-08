@@ -74,47 +74,47 @@ bool USBPolling::dataParse(void) {
 }
 
 bool USBPolling::parseFields(uint8_t len1, uint8_t len2, uint8_t len3, uint8_t len4, uint8_t len5, uint8_t len6, uint8_t len7, uint8_t len8) {
-  uint8_t __shift = 0;
+  uint8_t __shift = 58;
 
   if (len1 > 0) {
     _parsedData.field1 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len1) - 1));
-    __shift += len1;
+    __shift -= len1;
   } else {
     _parsedData.field1 = 0;
   }
   if (len2 > 0) {
     _parsedData.field2 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len2) - 1));
-    __shift += len2;
+    __shift -= len2;
   } else {
     _parsedData.field2 = 0;
   }
   if (len3 > 0) {
     _parsedData.field3 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len3) - 1));
-    __shift += len3;
+    __shift -= len3;
   } else {
     _parsedData.field3 = 0;
   }
   if (len4 > 0) {
     _parsedData.field4 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len4) - 1));
-    __shift += len4;
+    __shift -= len4;
   } else {
     _parsedData.field4 = 0;
   }
   if (len5 > 0) {
     _parsedData.field5 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len5) - 1));
-    __shift += len5;
+    __shift -= len5;
   } else {
     _parsedData.field5 = 0;
   }
   if (len6 > 0) {
     _parsedData.field6 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len6) - 1));
-    __shift += len6;
+    __shift -= len6;
   } else {
     _parsedData.field6 = 0;
   }
   if (len7 > 0) {
     _parsedData.field7 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len7) - 1));
-    __shift += len7;
+    __shift -= len7;
   } else {
     _parsedData.field7 = 0;
   }
