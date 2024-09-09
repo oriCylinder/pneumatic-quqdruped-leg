@@ -56,6 +56,7 @@ class NativeGUIApp(MDApp):
     Builder.load_file('layout.kv')
     trans_data =  ''
     selected_actuater = 0
+    add_cylinder_num = 0
     
     def build(self):    #描画が始まる前の処理
         self.screen_manager = PageManager()
@@ -78,6 +79,8 @@ class NativeGUIApp(MDApp):
         self.position_switch = self.screen_manager.get_screen('main').ids.position_switch
         self.voltage_switch = self.screen_manager.get_screen('main').ids.voltage_switch
         self.command_switch = self.screen_manager.get_screen('main').ids.command_switch
+        self.navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
+
         # Main Screen Locked Component
         self.gain_reload = self.screen_manager.get_screen('main').ids.gain_reload
         self.p_field = self.screen_manager.get_screen('main').ids.gain_p
@@ -92,8 +95,7 @@ class NativeGUIApp(MDApp):
         self.offset_capture = self.screen_manager.get_screen('main').ids.offset_capture
         self.stroke_capture = self.screen_manager.get_screen('main').ids.stroke_capture
         
-        self.udp_thread = None
-        
+        self.udp_thread = None        
         return self.screen_manager
     
     def on_start(self): #描画が始まったときの処理
@@ -138,9 +140,11 @@ class NativeGUIApp(MDApp):
         
         if hasattr(self, 'update_event'):
             Clock.unschedule(self.update_event)
-
+        
+        self.navigation_drawer.children[0].clear_widgets() #ドロワーを初期化
         self.graph_area.clear_widgets() #グラフを初期化
         self.selected_actuater = 0
+        self.add_cylinder_num = 0
         
         stop_event.set()
         Clock.schedule_once(lambda dt: self.show_snackbar(message)) # エラーメッセージをsnackbarに表示
@@ -170,16 +174,23 @@ class NativeGUIApp(MDApp):
             print(f"Connected: {addr}")
             #PVCデータを受け取ったら画面遷移
             Clock.schedule_once(lambda x: self.change_screen('main'))
+
+            current_num = 0
               
             #データの取得と変数への格納
             while not stop_event.is_set():              
                 data, addr = self.udp_socket.recvfrom(4096)
                 receive_data = data.decode()
                 self.trans_data = json.loads(receive_data)
-                if self.trans_data['type'] == "current_sensor_value" and self.trans_data["sensors"][0]["num"] == 0:
-                    self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                    self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                    self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                cylinder_num = self.trans_data["sensors"][0]["num"]
+                if self.trans_data['type'] == "current_sensor_value":
+                    if cylinder_num == current_num:
+                        Clock.schedule_once(lambda dt: self.update_drawer_menu())
+                        current_num += 1
+                    if cylinder_num == int(self.selected_actuater):
+                        self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                        self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                        self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                 elif self.trans_data['type'] == "response_gain_value":
                     self.p = self.trans_data.get("gains", {}).get("p", None)
                     self.i = self.trans_data.get("gains", {}).get("i", None)
@@ -198,9 +209,6 @@ class NativeGUIApp(MDApp):
             Clock.schedule_once(lambda x: self.stop_communication(error_message))
 
     def change_screen(self, screen_name):
-        if screen_name == 'main':
-            Clock.schedule_once(lambda x: self.update_drawer_menu())
-
         self.root.current = screen_name
     
     def switch_gain_window(self, switch):
@@ -332,17 +340,11 @@ class NativeGUIApp(MDApp):
         self.before_slider_command = self.slider_command
                 
     def update_drawer_menu(self):
-        navigation_drawer = self.screen_manager.get_screen('main').ids.nav_drawer_menu
-        navigation_drawer.children[0].clear_widgets()
-        actuater_num = len(self.trans_data['sensors'])
-
-        navigation_drawer.add_widget(MDNavigationDrawerLabel(text="ActuaterList"))
-
-        for actuater in range(actuater_num):
-            actuater_list = MDNavigationDrawerItem(
-                MDNavigationDrawerItemText(text=self.actuater_name.get(str(actuater), "Other" + str(actuater - len(self.actuater_name)))))
-            actuater_list.bind(on_release=partial(self.switch_actuater, str(actuater)))
-            navigation_drawer.add_widget(actuater_list)
+        actuater_list = MDNavigationDrawerItem(
+            MDNavigationDrawerItemText(text=self.actuater_name.get(str(self.add_cylinder_num), "Other" + str(self.add_cylinder_num - len(self.actuater_name)))))
+        actuater_list.bind(on_release=partial(self.switch_actuater, str(self.add_cylinder_num)))
+        self.navigation_drawer.add_widget(actuater_list)
+        self.add_cylinder_num += 1
             
     def show_snackbar(self, message):
         snackbar = MDSnackbar(
