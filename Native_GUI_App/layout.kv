@@ -98,10 +98,61 @@
                     drawer_type: "standard"
                     id: nav_drawer
                     radius: 0, dp(16), dp(16), 0
-                    MDNavigationDrawerMenu:
-                        id: nav_drawer_menu
-                        MDNavigationDrawerLabel:
-                            text: "ActuaterList"
+                    BoxLayout:
+                        orientation:'vertical'
+                        MDNavigationDrawerMenu:
+                            id: nav_drawer_menu
+                            MDNavigationDrawerLabel:
+                                text: "ActuaterList"
+                        MDNavigationDrawerDivider:
+                        BoxLayout:
+                            orientation:'vertical'
+                            size_hint_y: 0.3
+                            MDNavigationDrawerLabel:
+                                text:"Fixed motion"                                
+                            GridLayout:
+                                spacing: '10dp'
+                                size_hint_x: 1
+                                pos_hint: {'center_x': .5, 'center_y': .5}
+                                cols:2
+                                rows:2
+                                MDButton:
+                                    style: "outlined"
+                                    theme_width: "Custom"
+                                    size_hint_x: 1
+                                    on_release: app.fixed_motion('crawl')
+                                    MDButtonIcon:
+                                        icon:"turtle"
+                                    MDButtonText:
+                                        text: "Crawl"
+                                MDButton:
+                                    style: "outlined"
+                                    theme_width: "Custom"
+                                    size_hint_x: 1
+                                    on_release: app.fixed_motion('trot')
+                                    MDButtonIcon:
+                                        icon:"horse"
+                                    MDButtonText:
+                                        text: "Trot"
+                                MDButton:
+                                    style: "outlined"
+                                    theme_width: "Custom"
+                                    size_hint_x: 1
+                                    on_release: app.fixed_motion('pace')
+                                    MDButtonIcon:
+                                        icon:"elephant"
+                                    MDButtonText:
+                                        text: "Pace"
+                                MDButton:
+                                    style: "outlined"
+                                    theme_width: "Custom"
+                                    size_hint_x: 1
+                                    on_release: app.fixed_motion('bound')
+                                    MDButtonIcon:
+                                        icon:"rabbit"
+                                    MDButtonText:
+                                        text: "Bound"
+
 
 
 

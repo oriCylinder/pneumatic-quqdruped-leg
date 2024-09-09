@@ -234,6 +234,11 @@ class NativeGUIApp(MDApp):
         self.d_field.text = d
         self.switch_gain_window(False)
         
+    def fixed_motion(self,motion):     #4.1
+        data = {"type": "fixed_motion", "motion": motion}
+        self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+        print(data)
+        
 
     def gain_change(self, gain):    #7.1
         #self.switch_gain_window(True) #入力を禁止します

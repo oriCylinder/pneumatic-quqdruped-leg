@@ -27,7 +27,7 @@ def udp_server():
     i = 0
     
     while not stop_event.is_set():
-        if i == 4:
+        if i == 8:
             i = 0
         data = generate_data(i)
         json_data = json.dumps(data)
