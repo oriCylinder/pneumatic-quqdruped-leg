@@ -135,6 +135,8 @@ class NativeGUIApp(MDApp):
         self.command_slider.disabled = True
         self.offset_capture.disabled = True
         self.stroke_capture.disabled = True
+
+        self.gain_reload.disabled = True
         
         self.switch_gain_window(True)
         
@@ -212,7 +214,6 @@ class NativeGUIApp(MDApp):
         self.root.current = screen_name
     
     def switch_gain_window(self, switch):
-        self.gain_reload.disabled = switch
         self.p_field.disabled = switch
         self.i_field.disabled = switch
         self.d_field.disabled = switch
@@ -271,6 +272,7 @@ class NativeGUIApp(MDApp):
             self.command_slider.disabled = False
             self.offset_capture.disabled = False
             self.stroke_capture.disabled = False
+            self.gain_reload.disabled = False
             position = self.position
             command = self.command
             self.screen_manager.get_screen('main').ids.position_slider.value = position
