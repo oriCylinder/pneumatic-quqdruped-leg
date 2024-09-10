@@ -176,14 +176,14 @@ class NativeGUIApp(MDApp):
             Clock.schedule_once(lambda x: self.change_screen('main'))
 
             current_num = 0
-              
+                
             #データの取得と変数への格納
             while not stop_event.is_set():              
                 data, addr = self.udp_socket.recvfrom(4096)
                 receive_data = data.decode()
                 self.trans_data = json.loads(receive_data)
-                cylinder_num = self.trans_data["sensors"][0]["num"]
                 if self.trans_data['type'] == "current_sensor_value":
+                    cylinder_num = self.trans_data["sensors"][0]["num"]
                     if cylinder_num == current_num:
                         Clock.schedule_once(lambda dt: self.update_drawer_menu())
                         current_num += 1
