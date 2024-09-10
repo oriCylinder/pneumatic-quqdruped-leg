@@ -7,8 +7,9 @@ Config.set('graphics', 'maxfps', 60)
 
 # GUIコンポーネント関連
 from kivymd.uix.card import MDCard
+from kivymd.uix.button import MDButton
 from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
-from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDrawerItemText, MDNavigationDrawerLabel
+from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDrawerItemText
 
 # Kivyフォント関連
 from kivy.core.text import LabelBase, DEFAULT_FONT
@@ -47,7 +48,7 @@ class MainScreen(MDScreen):
     def on_disconnect_button_press(self):
         """切断ボタンが押されたときに通信を切断します。"""
         app = MDApp.get_running_app()
-        app.stop_communication("切断されました")
+        app.stop_communication("Disconnected!")
 
 class PageManager(MDScreenManager):
     pass
@@ -206,7 +207,7 @@ class NativeGUIApp(MDApp):
             print("切断しました")
 
         except Exception as e:
-            error_message = f"UDPクライアントエラー: {e}"
+            error_message = f"UDP Communication Error: {e}"
             print(error_message)
             Clock.schedule_once(lambda x: self.stop_communication(error_message))
 
@@ -238,6 +239,7 @@ class NativeGUIApp(MDApp):
     def fixed_motion(self,motion):     #4.1
         data = {"type": "fixed_motion", "motion": motion}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+        self.show_snackbar(f"Fixed motion requesting... ⇒ {motion}")
         print(data)
         
 
@@ -248,19 +250,21 @@ class NativeGUIApp(MDApp):
         if gain_values.get(gain) != '':
             self.switch_gain_window(True)
             data = {"type": "set_gain_value", "num": self.selected_actuater, gain: gain_values.get(gain)}
-            # UDP送信
             self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+            self.show_snackbar(f"Gain change requesting... ⇒  {gain} : {gain_values.get(gain)}")
             print(data)
         
     def gain_save(self):    #5.1
         self.switch_gain_window(True)
         data = {"type":"request_gain_save","num":self.selected_actuater}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
+        self.show_snackbar(f"Gain save requesting...")
         print(data)
         
     def req_capture(self,capture_type):  #6.1
         data = {"type":"request_capture","num":self.selected_actuater, "capture": capture_type}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
+        self.show_snackbar(f"Capture requesting... ⇒  {capture_type}")
         print(data)
         
     def switch_actuater(self, num, obj):
@@ -415,6 +419,12 @@ class NonInteractiveCard(MDCard):
         self.padding = [10, 10, 10, 10]  # 左、上、右、下の順に余白を設定
     def set_properties_widget(self):
         return False
+    
+class CustomMDButton(MDButton):
+    def on_touch_down(self, touch):
+        if self.disabled:
+            return False
+        return super().on_touch_down(touch)
 
 if __name__ == '__main__':
     NativeGUIApp().run()
