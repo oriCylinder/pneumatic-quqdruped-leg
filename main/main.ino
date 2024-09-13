@@ -178,7 +178,8 @@ void loop() {
         sendDataCGC(3);  //シリンダー3のCGC送信関数を実行
         break;
 
-        //CAPのとき
+      //CAPのとき
+      case 50:
         if ((dataAry[4] + dataAry[5] != 2) && (dataAry[0] + dataAry[1] + dataAry[2] + dataAry[3] < 2)) {  //キャプチャー要求のダブりがないか検査
           for (int i = 0; i < valveTotalNum; i++) {                                                       //バルブの個数だけ繰り返す
             if (dataAry[i] == 1) {                                                                        //もしシリンダーiの要求なら
