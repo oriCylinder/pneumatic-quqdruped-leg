@@ -162,7 +162,7 @@ const uint64_t& USBPolling::dataCoupling(const uint8_t format, const uint16_t da
         __dataShift[__i] = __dataShift[__i - 1] - __dataBit[__i];
       }
       for (int __i = 0; __i < 6; __i++) {
-        __dataMask[__i] = (1ULL << __dataShift[__i]) - 1;
+        __dataMask[__i] = (1ULL << __dataBit[__i]) - 1;
       }
 
       _sendData |= (static_cast<uint64_t>(format) & __dataMask[0]) << __dataShift[0];
