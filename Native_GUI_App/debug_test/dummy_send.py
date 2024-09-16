@@ -41,7 +41,7 @@ def udp_sender():
             data = generate_data(i)
             json_data = json.dumps(data)
             udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
-            print(f"UDP送信: {json_data}")
+            #print(f"UDP送信: {json_data}")
             i+=1
         time.sleep(1/30)
     

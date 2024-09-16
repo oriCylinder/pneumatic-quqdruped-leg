@@ -1,3 +1,5 @@
+import os
+
 # GUIライブラリのインポート
 from kivymd.app import MDApp
 from kivy.lang import Builder
@@ -13,7 +15,9 @@ from kivymd.uix.navigationdrawer import MDNavigationDrawerItem, MDNavigationDraw
 
 # Kivyフォント関連
 from kivy.core.text import LabelBase, DEFAULT_FONT
-LabelBase.register(DEFAULT_FONT, './font/NotoSansJP-Regular.ttf')
+fontdir = os.path.join(os.path.dirname(__file__), 'font', 'NotoSansJP-Regular.ttf')
+rootdir = os.path.dirname(__file__)
+LabelBase.register(DEFAULT_FONT, fontdir)
 
 # グラフ描画関連
 import numpy as np
@@ -23,7 +27,7 @@ import matplotlib
 matplotlib.use('Agg')   #非アクティブになる現象を抑止
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
-font_manager.fontManager.addfont("./font/NotoSansJP-Regular.ttf") #matplotlib
+font_manager.fontManager.addfont(fontdir) #matplotlib
 plt.rc('font', family="Noto Sans JP")
 
 # 画面遷移関連
@@ -387,7 +391,8 @@ class NativeGUIApp(MDApp):
         self.settings_manager.save_settings()
     
 class SettingsManager:
-    def __init__(self, filename='settings.json'):
+    path = os.path.join(rootdir, 'settings.json')
+    def __init__(self, filename=path):
         self.filename = filename
         self.settings = self.load_settings()
 
