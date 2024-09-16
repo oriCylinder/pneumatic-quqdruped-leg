@@ -58,7 +58,7 @@ class PageManager(MDScreenManager):
     pass
     
 class NativeGUIApp(MDApp):
-    Builder.load_file('layout.kv')
+    Builder.load_file(os.path.join(rootdir, 'layout.kv'))
     trans_data =  ''
     selected_actuater = 0
     add_cylinder_num = 0
