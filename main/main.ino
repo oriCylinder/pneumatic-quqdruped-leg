@@ -60,6 +60,7 @@ void setup() {
     //PIDクラスのインスタンスを初期設定
     vCommand[i].setBaseGain(baseGainList[i][0], baseGainList[i][1], baseGainList[i][2]);  //ベースゲインを規定
     vCommand[i].clipLimitEnable(true, 90.0, -90.0);                                       //コマンドがサーボの可動域を超えないようクリップ
+    vCommand[i].setMinDt(1000);                                                           //最小制御ループ秒数を設定[us]
   }
 
   //USB通信クラスのインスタンスを初期設定

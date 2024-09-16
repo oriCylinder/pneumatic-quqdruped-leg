@@ -14,6 +14,8 @@ public:
   void setBaseGain(const float pBaseGain, const float iBaseGain, const float dBaseGain);
   //ゲインの設定
   void setGain(const uint8_t pGain, const uint8_t iGain, const uint8_t dGain);
+  //最小ループ秒数の設定
+  void setMinDt(const uint16_t dt);
   //ゲインの取得
   const gainStruct& getGain(void) const;
   //コマンドの計算
@@ -31,6 +33,7 @@ private:
   uint32_t _nowTime;
   uint32_t _preTime;
   int16_t _err[3];
+  uint16_t _minDt;
   double _posErr;
   double _velErr;
   double _accErr;
