@@ -199,12 +199,14 @@ class NativeGUIApp(MDApp):
                         self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                         self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                 elif self.trans_data['type'] == "response_gain_value":
-                    self.p = self.trans_data.get("gains", {}).get("p", None)
-                    self.i = self.trans_data.get("gains", {}).get("i", None)
-                    self.d = self.trans_data.get("gains", {}).get("d", None)
-                    self.capture_max = self.trans_data.get("capture", {}).get("max", None)
-                    self.capture_min = self.trans_data.get("capture", {}).get("min", None)
-                    Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
+                    cylinder_num = self.trans_data["num"]
+                    if cylinder_num == current_num:
+                        self.p = self.trans_data.get("gains", {}).get("p", None)
+                        self.i = self.trans_data.get("gains", {}).get("i", None)
+                        self.d = self.trans_data.get("gains", {}).get("d", None)
+                        self.capture_max = self.trans_data.get("capture", {}).get("max", None)
+                        self.capture_min = self.trans_data.get("capture", {}).get("min", None)
+                        Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
                 
             self.udp_socket.close()
             self.udp_socket = None
