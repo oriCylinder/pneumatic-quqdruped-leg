@@ -348,7 +348,7 @@ class NativeGUIApp(MDApp):
         
         """Target送信"""
         if self.before_slider_position != self.slider_position or self.before_slider_command != self.slider_command:
-            data = {"type":"set_target_value","target":{"num":self.selected_actuater,"position":self.slider_position, "command": self.slider_command}}
+            data = {"type":"set_target_value","target":[{"num":self.selected_actuater,"position":self.slider_position, "command": self.slider_command}]}
             self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
             print(data)
         self.before_slider_position = self.slider_position
