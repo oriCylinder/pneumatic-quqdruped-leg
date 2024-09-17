@@ -28,13 +28,18 @@ def udp_sender():
     #udp_socket.bind((IP, UDP_PORT))
     print("UDPサーバーが待機中...")
     i = 0
+    j = 0
     
     while not stop_event.is_set():
         if flag == 1:
-            data = {"type": "response_gain_value", "gains": {"p":"10","i":"20","d":"30"}, "capture": {"max":"1000","min":"100"}}
+            if j == 8:
+                j = 0
+            data = {"type": "response_gain_value", "num": str(j),"gains": {"p":"10","i":"20","d":"30"}, "capture": {"max":"1000","min":"100"}}
             json_data = json.dumps(data)
+            print(json_data)
             udp_socket.sendto(json_data.encode('utf-8'), (IP, UDP_PORT))
             flag = 0
+            j+=1
         else:
             if i == 8:
                 i = 0

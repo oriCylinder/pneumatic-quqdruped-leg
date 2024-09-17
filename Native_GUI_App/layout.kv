@@ -195,55 +195,36 @@
                                         BoxLayout:
                                             orientation: "horizontal"
                                             spacing: 20
-                                            MDTextField:
-                                                mode: "filled"
-                                                id: gain_p
-                                                disabled : "True"
-                                                input_filter: "float"
-                                                MDTextFieldHintText:
-                                                    text: "p"
+                                            BoxLayout:
+                                                orientation: "vertical"
+                                                spacing: 20
+                                                MDTextField:
+                                                    mode: "filled"
+                                                    id: gain_p
+                                                    disabled : "True"
+                                                    input_filter: "float"
+                                                    MDTextFieldHintText:
+                                                        text: "p"
+                                                MDTextField:
+                                                    mode: "filled"
+                                                    id: gain_i
+                                                    disabled : "True"
+                                                    input_filter: "float"
+                                                    MDTextFieldHintText:
+                                                        text: "i"
+                                                MDTextField:
+                                                    mode: "filled"
+                                                    id: gain_d
+                                                    disabled : "True"
+                                                    input_filter: "float"
+                                                    MDTextFieldHintText:
+                                                        text: "d"
                                             CustomMDButton:
                                                 style: "elevated"
-                                                id: p_send
+                                                id: gain_send
                                                 disabled : "True"
                                                 pos_hint: {'center_y': 0.5}
-                                                on_release: app.gain_change('p')
-                                                MDButtonText:
-                                                    text: "Upload"
-                                        BoxLayout:
-                                            orientation: "horizontal"
-                                            spacing: 20
-                                            MDTextField:
-                                                mode: "filled"
-                                                id: gain_i
-                                                disabled : "True"
-                                                input_filter: "float"
-                                                MDTextFieldHintText:
-                                                    text: "i"
-                                            CustomMDButton:
-                                                style: "elevated"
-                                                id: i_send
-                                                disabled : "True"
-                                                pos_hint: {'center_y': 0.5}
-                                                on_release: app.gain_change('i')
-                                                MDButtonText:
-                                                    text: "Upload"
-                                        BoxLayout:
-                                            orientation: "horizontal"
-                                            spacing: 20
-                                            MDTextField:
-                                                mode: "filled"
-                                                id: gain_d
-                                                disabled : "True"
-                                                input_filter: "float"
-                                                MDTextFieldHintText:
-                                                    text: "d"
-                                            CustomMDButton:
-                                                style: "elevated"
-                                                id: d_send
-                                                disabled : "True"
-                                                pos_hint: {'center_y': 0.5}
-                                                on_release: app.gain_change('d')
+                                                on_release: app.gain_change()
                                                 MDButtonText:
                                                     text: "Upload"
                                         BoxLayout:

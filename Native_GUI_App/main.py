@@ -91,9 +91,7 @@ class NativeGUIApp(MDApp):
         self.p_field = self.screen_manager.get_screen('main').ids.gain_p
         self.i_field = self.screen_manager.get_screen('main').ids.gain_i
         self.d_field = self.screen_manager.get_screen('main').ids.gain_d
-        self.p_send = self.screen_manager.get_screen('main').ids.p_send
-        self.i_send = self.screen_manager.get_screen('main').ids.i_send
-        self.d_send = self.screen_manager.get_screen('main').ids.d_send
+        self.gain_send = self.screen_manager.get_screen('main').ids.gain_send
         self.save_button = self.screen_manager.get_screen('main').ids.gain_save
         self.position_slider = self.screen_manager.get_screen('main').ids.position_slider
         self.command_slider = self.screen_manager.get_screen('main').ids.command_slider
@@ -164,58 +162,58 @@ class NativeGUIApp(MDApp):
         self.progressindicator.active = True
         
         print("UDPサーバーに接続中")
-        try:
-            self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.udp_socket.settimeout(3)
-            self.udp_socket.bind(("0.0.0.0", 6050))
-            print("UDPでサーバーからのメッセージを受信中...")
+        #try:
+        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.udp_socket.settimeout(3)
+        self.udp_socket.bind(("0.0.0.0", 6050))
+        print("UDPでサーバーからのメッセージを受信中...")
+        
+        #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
+        while not stop_event.is_set():
+            data, addr = self.udp_socket.recvfrom(4096)
+            receive_data = data.decode()
+            self.trans_data = json.loads(receive_data)
+            if self.trans_data['type'] == "current_sensor_value":
+                break
             
-            #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
-            while not stop_event.is_set():
-                data, addr = self.udp_socket.recvfrom(4096)
-                receive_data = data.decode()
-                self.trans_data = json.loads(receive_data)
-                if self.trans_data['type'] == "current_sensor_value":
-                    break
-                
-            print(f"Connected: {addr}")
-            #PVCデータを受け取ったら画面遷移
-            Clock.schedule_once(lambda x: self.change_screen('main'))
+        print(f"Connected: {addr}")
+        #PVCデータを受け取ったら画面遷移
+        Clock.schedule_once(lambda x: self.change_screen('main'))
 
-            current_num = 0
-                
-            #データの取得と変数への格納
-            while not stop_event.is_set():              
-                data, addr = self.udp_socket.recvfrom(4096)
-                receive_data = data.decode()
-                self.trans_data = json.loads(receive_data)
-                if self.trans_data['type'] == "current_sensor_value":
-                    cylinder_num = self.trans_data["sensors"][0]["num"]
-                    if cylinder_num == current_num:
-                        Clock.schedule_once(lambda dt: self.update_drawer_menu())
-                        current_num += 1
-                    if cylinder_num == int(self.selected_actuater):
-                        self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                        self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                        self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                elif self.trans_data['type'] == "response_gain_value":
-                    cylinder_num = self.trans_data["num"]
-                    if cylinder_num == current_num:
-                        self.p = self.trans_data.get("gains", {}).get("p", None)
-                        self.i = self.trans_data.get("gains", {}).get("i", None)
-                        self.d = self.trans_data.get("gains", {}).get("d", None)
-                        self.capture_max = self.trans_data.get("capture", {}).get("max", None)
-                        self.capture_min = self.trans_data.get("capture", {}).get("min", None)
-                        Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
-                
-            self.udp_socket.close()
-            self.udp_socket = None
-            print("切断しました")
+        current_num = 0
+            
+        #データの取得と変数への格納
+        while not stop_event.is_set():              
+            data, addr = self.udp_socket.recvfrom(4096)
+            receive_data = data.decode()
+            self.trans_data = json.loads(receive_data)
+            if self.trans_data['type'] == "current_sensor_value":
+                cylinder_num = self.trans_data["sensors"][0]["num"]
+                if cylinder_num == current_num:
+                    Clock.schedule_once(lambda dt: self.update_drawer_menu())
+                    current_num += 1
+                if cylinder_num == int(self.selected_actuater):
+                    self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                    self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                    self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+            elif self.trans_data['type'] == "response_gain_value":
+                cylinder_num = self.trans_data["num"]
+                if cylinder_num == self.selected_actuater:
+                    self.p = self.trans_data.get("gains", {}).get("p", None)
+                    self.i = self.trans_data.get("gains", {}).get("i", None)
+                    self.d = self.trans_data.get("gains", {}).get("d", None)
+                    self.capture_max = self.trans_data.get("capture", {}).get("max", None)
+                    self.capture_min = self.trans_data.get("capture", {}).get("min", None)
+                    Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
+            
+        self.udp_socket.close()
+        self.udp_socket = None
+        print("切断しました")
 
-        except Exception as e:
-            error_message = f"UDP Communication Error: {e}"
-            print(error_message)
-            Clock.schedule_once(lambda x: self.stop_communication(error_message))
+        #except Exception as e:
+            #error_message = f"UDP Communication Error: {e}"
+            #print(error_message)
+            #Clock.schedule_once(lambda x: self.stop_communication(error_message))
 
     def change_screen(self, screen_name):
         self.root.current = screen_name
@@ -224,9 +222,7 @@ class NativeGUIApp(MDApp):
         self.p_field.disabled = switch
         self.i_field.disabled = switch
         self.d_field.disabled = switch
-        self.p_send.disabled = switch
-        self.i_send.disabled = switch
-        self.d_send.disabled = switch
+        self.gain_send.disabled = switch
         self.save_button.disabled = switch
         
     def gain_request(self):     #4.1
@@ -248,16 +244,15 @@ class NativeGUIApp(MDApp):
         print(data)
         
 
-    def gain_change(self, gain):    #7.1
+    def gain_change(self):    #7.1
         #self.switch_gain_window(True) #入力を禁止します
         gain_values = {"p": self.p_field.text, "i": self.i_field.text, "d": self.d_field.text}
-        # 指定された gain のみを格納
-        if gain_values.get(gain) != '':
-            self.switch_gain_window(True)
-            data = {"type": "set_gain_value", "num": self.selected_actuater, gain: gain_values.get(gain)}
-            self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
-            self.show_snackbar(f"Gain change requesting... ⇒  {gain} : {gain_values.get(gain)}")
-            print(data)
+        self.switch_gain_window(True)
+        data = {"type": "set_gain_value", "num": self.selected_actuater, "p": gain_values.get("p"), "i": gain_values.get("i"), "d": gain_values.get("d")}
+        self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
+        self.show_snackbar(f"Gain change requesting...")
+        print(data)
+
         
     def gain_save(self):    #5.1
         self.switch_gain_window(True)
