@@ -227,7 +227,6 @@ class NativeGUIApp(MDApp):
         self.p_send.disabled = switch
         self.i_send.disabled = switch
         self.d_send.disabled = switch
-        self.d_send.disabled = switch
         self.save_button.disabled = switch
         
     def gain_request(self):     #4.1
@@ -349,8 +348,12 @@ class NativeGUIApp(MDApp):
         self.fig.canvas.flush_events()
         
         """Target送信"""
-        if self.before_slider_position != self.slider_position or self.before_slider_command != self.slider_command:
-            data = {"type":"set_target_value","target":[{"num":self.selected_actuater,"position":self.slider_position, "command": self.slider_command}]}
+        if self.before_slider_position != self.slider_position:
+            data = {"type":"set_target_value","position":[{"num":self.selected_actuater,"value":self.slider_position}]}
+            self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
+            print(data)
+        elif self.before_slider_command != self.slider_command:
+            data = {"type":"set_target_value","command":[{"num":self.selected_actuater,"value":self.slider_command}]}
             self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address,6060))
             print(data)
         self.before_slider_position = self.slider_position
