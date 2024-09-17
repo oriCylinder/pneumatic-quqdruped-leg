@@ -12,15 +12,7 @@ class DummyESP32:
 
     def find_serial_port(self):
         # Windowsでも動作するように、利用可能なポートを探す
-        available_ports = list_ports.comports()
-        for port in available_ports:
-            try:
-                ser = serial.Serial(port.device, 115200)
-                print(f"Using dummy port: {port.device}")
-                return port.device
-            except:
-                continue
-        raise Exception("No valid serial ports found for dummy ESP32")
+        return 'COM5'
 
     def generate_data(self):
         # フォーマット値をランダムに選択
@@ -43,22 +35,22 @@ class DummyESP32:
             field3 = random.randint(0, 0xFFF)  # 12ビットフィールド
 
             # データをビットシフトで結合
-            data = (format_value << 58) | (field1 << 48) | (field2 << 36) | (field3 << 24)
+            data = (format_value << 58) | (field1 << 46) | (field2 << 34) | (field3 << 22)
 
-        return data
+        return data,format_value,field1,field2,field3
 
     def encode_and_send_data(self):
         while True:
             try:
                 # 64ビットのダミーデータを生成
-                data = self.generate_data()
+                data, format_value, f1,f2,f3 = self.generate_data()
 
                 # バイナリデータをBase64にエンコードして送信する
                 encoded_data = base64.b64encode(data.to_bytes(8, 'little')).decode('utf-8')
 
                 # シリアルポートにデータを書き込み（送信）
                 self.serial_connection.write((encoded_data + '\n').encode('utf-8'))
-                print(f"Sent dummy data: {encoded_data}")
+                print(f"Base64:{encoded_data} bin:{bin(data)} format:{format_value} f:{f1}:{f2}:{f3}")
 
                 # 1秒待機して次のデータを送信
                 time.sleep(1/30)
