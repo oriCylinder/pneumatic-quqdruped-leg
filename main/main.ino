@@ -92,7 +92,7 @@ void loop() {
   if (nowTime - preTime >= PVCInterval) {
     //バルブの個数だけ繰り返す
     for (int i = 0; i < valveTotalNum; i++) {
-      sendDataPVC(i);  //PVC送信関数
+      // sendDataPVC(i);  //PVC送信関数
     }
     preTime = nowTime;  //前回時間を更新
   }
@@ -203,19 +203,26 @@ void loop() {
   }
 
   //PID処理
-  for (int i = 0; i < valveTotalNum; i++) {                                                     //バルブの個数だけ繰り返す
-    getValtageAry[i] = analogRead(sensorPins[i]);                                               //センサーの値を取得
-    posAry[i][1] = map(getValtageAry[i], capturedValAry[i][0], capturedValAry[i][1], 0, 4095);  //取得値をキャプチャー値でMapping
+  for (int i = 0; i < valveTotalNum; i++) {                                                //バルブの個数だけ繰り返す
+    getValtageAry[i] = analogRead(sensorPins[i]);                                          //センサーの値を取得
+    int buf = map(getValtageAry[i], capturedValAry[i][0], capturedValAry[i][1], 0, 4095);  //取得値をキャプチャー値でMapping
+    if (buf < 0) {                                                                         //Mappingされた値が0よ小さければ
+      buf = 0;                                                                             //0に修正
+    } else if (buf > 4095) {                                                               //Mappingされた値が4095より大きければ
+      buf = 4095;                                                                          //4095に修正
+    }
+    posAry[i][1] = buf;  //Mappingされた値を反映
 
-    if (commandFlagAry[i]) {          //もしコマンドフラグがcommandなら
-      valve[i].write(commandAry[i]);  //バルブへcommandの値をそのまま送信
-      vCommand[i].timeReset();        //念のためPID処理の時間をリセットしておく
-
+    if (commandFlagAry[i]) {                                                //もしコマンドフラグがcommandなら
+      valve[i].write(commandAry[i]);                                        //バルブへcommandの値をそのまま送信
+      vCommand[i].timeReset();                                              //念のためPID処理の時間をリセットしておく
     } else {                                                                //もしコマンドフラグがpositionなら
       commandAry[i] = vCommand[i].calcCommand(posAry[i][0], posAry[i][1]);  //PID関数を実行しcommandを取得
       valve[i].write(commandAry[i] + 90);                                   //バルブへcommandを送信(戻り値が-90から90なので0から180に再設定)
     }
   }
+  Serial.println(posAry[0][1]);
+  delay(100);
 }
 
 void sendDataCGC(uint8_t num) {
