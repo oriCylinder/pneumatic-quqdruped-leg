@@ -92,7 +92,7 @@ void loop() {
   if (nowTime - preTime >= PVCInterval) {
     //バルブの個数だけ繰り返す
     for (int i = 0; i < valveTotalNum; i++) {
-      // sendDataPVC(i);  //PVC送信関数
+      sendDataPVC(i);  //PVC送信関数
     }
     preTime = nowTime;  //前回時間を更新
   }
@@ -117,11 +117,11 @@ void loop() {
       case 63:
         for (int i = 0; i < valveTotalNum; i++) {  //バルブの個数だけ繰り返す
 
-          if (dataAry[i] == 0) {                  //もしシリンダーiのデータがcommand指示なら
+          if (dataAry[i] == 1) {                  //もしシリンダーiのデータがcommand指示なら
             commandFlagAry[i] = 1;                //コマンドフラグをcommandにする
             commandAry[i] = dataAry[i + 4] / 10;  //コマンドを送られてきたデータに設定(0-1800で受信するため10で割る)
 
-          } else if (dataAry[i] == 1) {     //もしシリンダーiのデータがposition指示なら
+          } else if (dataAry[i] == 0) {     //もしシリンダーiのデータがposition指示なら
             commandFlagAry[i] = 0;          //コマンドフラグをpositionにする
             posAry[i][0] = dataAry[i + 4];  //ポジション配列のtargetに送られてきたデータを格納
           }
@@ -221,13 +221,11 @@ void loop() {
       valve[i].write(commandAry[i] + 90);                                   //バルブへcommandを送信(戻り値が-90から90なので0から180に再設定)
     }
   }
-  Serial.println(posAry[0][1]);
-  delay(100);
 }
 
 void sendDataCGC(uint8_t num) {
   const gainStruct& gain = vCommand[num].getGain();  //ゲインを格納する構造体
-  const uint64_t& binaryData = pollData.dataCoupling(static_cast<uint16_t>(10 * (num + 1) + 1),
+  const uint64_t& binaryData = pollData.dataCoupling(static_cast<uint8_t>(10 * (num + 1) + 1),
                                                      static_cast<uint16_t>(gain.pGain),
                                                      static_cast<uint16_t>(gain.iGain),
                                                      static_cast<uint16_t>(gain.dGain),
@@ -237,10 +235,10 @@ void sendDataCGC(uint8_t num) {
 }
 
 void sendDataPVC(uint8_t num) {
-  const uint64_t& binaryData = pollData.dataCoupling(static_cast<uint16_t>(num + 5),
+  const uint64_t& binaryData = pollData.dataCoupling(static_cast<uint8_t>(num + 5),
                                                      posAry[num][1],
                                                      getValtageAry[num],
-                                                     static_cast<uint16_t>(commandAry[num]),
+                                                     static_cast<uint16_t>((commandAry[num] + 90.0) * 10.0),
                                                      0,
                                                      0);
   pollData.sendData(binaryData);
