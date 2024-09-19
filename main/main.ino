@@ -117,13 +117,13 @@ void loop() {
       case 63:
         for (int i = 0; i < valveTotalNum; i++) {  //バルブの個数だけ繰り返す
 
-          if (dataAry[i] == 1) {                       //もしシリンダーiのデータがcommand指示なら
-            commandFlagAry[i] = 1;                     //コマンドフラグをcommandにする
-            commandAry[i] = dataAry[i + 4] / 10 - 90;  //コマンドを送られてきたデータに設定(0-1800で受信するため10で割る)
+          if (dataAry[i] == 1) {                                  //もしシリンダーiのデータがcommand指示なら
+            commandFlagAry[i] = 1;                                //コマンドフラグをcommandにする
+            commandAry[i] = float(dataAry[i + 4]) / 10.0 - 90.0;  //コマンドを送られてきたデータに設定(0-1800で受信するため10で割る)
 
-          } else if (dataAry[i] == 0) {     //もしシリンダーiのデータがposition指示なら
-            commandFlagAry[i] = 0;          //コマンドフラグをpositionにする
-            posAry[i][0] = dataAry[i + 4];  //ポジション配列のtargetに送られてきたデータを格納
+          } else if (dataAry[i] == 0) {            //もしシリンダーiのデータがposition指示なら
+            commandFlagAry[i] = 0;                 //コマンドフラグをpositionにする
+            posAry[i][0] = float(dataAry[i + 4]);  //ポジション配列のtargetに送られてきたデータを格納
           }
         }
         break;
@@ -214,11 +214,11 @@ void loop() {
     posAry[i][1] = buf;  //Mappingされた値を反映
 
     if (commandFlagAry[i]) {                                                //もしコマンドフラグがcommandなら
-      valve[i].write(commandAry[i] + 90);                                   //バルブへcommandの値をそのまま送信
+      valve[i].write(commandAry[i] + 90.0);                                   //バルブへcommandの値をそのまま送信
       vCommand[i].timeReset();                                              //念のためPID処理の時間をリセットしておく
     } else {                                                                //もしコマンドフラグがpositionなら
       commandAry[i] = vCommand[i].calcCommand(posAry[i][0], posAry[i][1]);  //PID関数を実行しcommandを取得
-      valve[i].write(commandAry[i] + 90);                                   //バルブへcommandを送信(戻り値が-90から90なので0から180に再設定)
+      valve[i].write(commandAry[i] + 90.0);                                   //バルブへcommandを送信(戻り値が-90から90なので0から180に再設定)
     }
   }
 }
