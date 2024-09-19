@@ -253,7 +253,7 @@ class NativeGUIApp(MDApp):
         #self.switch_gain_window(True) #入力を禁止します
         gain_values = {"p": self.p_field.text, "i": self.i_field.text, "d": self.d_field.text}
         self.switch_gain_window(True)
-        data = {"type": "set_gain_value", "num": self.selected_actuater, "p": gain_values.get("p"), "i": gain_values.get("i"), "d": gain_values.get("d")}
+        data = {"type": "set_gain_value", "num": int(self.selected_actuater), "p": gain_values.get("p"), "i": gain_values.get("i"), "d": gain_values.get("d")}
         self.dynamicUdpSocket.sendto(json.dumps(data).encode('utf-8'), (self.address, 6060))
         self.show_snackbar(f"Gain change requesting...")
         print(data)
