@@ -123,7 +123,7 @@ void loop() {
 
           } else if (dataAry[i] == 0) {            //もしシリンダーiのデータがposition指示なら
             commandFlagAry[i] = 0;                 //コマンドフラグをpositionにする
-            posAry[i][0] = float(dataAry[i + 4]);  //ポジション配列のtargetに送られてきたデータを格納
+            posAry[i][0] = dataAry[i + 4];  //ポジション配列のtargetに送られてきたデータを格納
           }
         }
         break;
