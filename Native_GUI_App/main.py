@@ -197,7 +197,7 @@ class NativeGUIApp(MDApp):
                     self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
                     self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
             elif self.trans_data['type'] == "response_gain_value":
-                cylinder_num = self.trans_data["num"]
+                cylinder_num = str(self.trans_data["num"])
                 if cylinder_num == self.selected_actuater:
                     self.p = self.trans_data.get("gains", {}).get("p", None)
                     self.i = self.trans_data.get("gains", {}).get("i", None)
