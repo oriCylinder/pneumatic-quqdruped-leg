@@ -119,6 +119,7 @@ bool USBPolling::parseFields(uint8_t len1, uint8_t len2, uint8_t len3, uint8_t l
     _parsedData.field7 = 0;
   }
   if (len8 > 0) {
+    __shift -= len8;
     _parsedData.field8 = static_cast<uint16_t>((_getData >> __shift) & ((1ULL << len8) - 1));
   } else {
     _parsedData.field8 = 0;
