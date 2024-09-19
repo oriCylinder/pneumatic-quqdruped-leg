@@ -39,6 +39,7 @@ from functools import partial
 import json
 import socket
 import threading
+import time
 
 stop_event = threading.Event()
 
@@ -162,58 +163,62 @@ class NativeGUIApp(MDApp):
         self.progressindicator.active = True
         
         print("UDPサーバーに接続中")
-        #try:
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.settimeout(3)
-        self.udp_socket.bind(("0.0.0.0", 6050))
-        print("UDPでサーバーからのメッセージを受信中...")
-        
-        #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
-        while not stop_event.is_set():
-            data, addr = self.udp_socket.recvfrom(4096)
-            receive_data = data.decode()
-            self.trans_data = json.loads(receive_data)
-            if self.trans_data['type'] == "current_sensor_value":
-                break
+        try:
+            self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_socket.settimeout(3)
+            self.udp_socket.bind(("0.0.0.0", 6050))
+            print("UDPでサーバーからのメッセージを受信中...")
             
-        print(f"Connected: {addr}")
-        #PVCデータを受け取ったら画面遷移
-        Clock.schedule_once(lambda x: self.change_screen('main'))
+            #初回のデータを受け取ったときの処理 PVCが送られて来るまで待ち
+            while not stop_event.is_set():
+                data, addr = self.udp_socket.recvfrom(4096)
+                receive_data = data.decode()
+                self.trans_data = json.loads(receive_data)
+                if self.trans_data['type'] == "current_sensor_value":
+                    break
+                
+            print(f"Connected: {addr}")
+            #PVCデータを受け取ったら画面遷移
+            Clock.schedule_once(lambda x: self.change_screen('main'))
 
-        current_num = 0
-            
-        #データの取得と変数への格納
-        while not stop_event.is_set():              
-            data, addr = self.udp_socket.recvfrom(4096)
-            receive_data = data.decode()
-            self.trans_data = json.loads(receive_data)
-            if self.trans_data['type'] == "current_sensor_value":
-                cylinder_num = self.trans_data["sensors"][0]["num"]
-                if cylinder_num == current_num:
-                    Clock.schedule_once(lambda dt: self.update_drawer_menu())
-                    current_num += 1
-                if cylinder_num == int(self.selected_actuater):
-                    self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                    self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-                    self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
-            elif self.trans_data['type'] == "response_gain_value":
-                cylinder_num = str(self.trans_data["num"])
-                if cylinder_num == self.selected_actuater:
-                    self.p = self.trans_data.get("gains", {}).get("p", None)
-                    self.i = self.trans_data.get("gains", {}).get("i", None)
-                    self.d = self.trans_data.get("gains", {}).get("d", None)
-                    self.capture_max = self.trans_data.get("capture", {}).get("max", None)
-                    self.capture_min = self.trans_data.get("capture", {}).get("min", None)
-                    Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
-            
-        self.udp_socket.close()
-        self.udp_socket = None
-        print("切断しました")
+            current_num = 0
+                
+            #データの取得と変数への格納
+            while not stop_event.is_set():
+                try:              
+                    data, addr = self.udp_socket.recvfrom(4096)
+                except TimeoutError:
+                    time.sleep(0.1)
+                    continue
+                receive_data = data.decode()
+                self.trans_data = json.loads(receive_data)
+                if self.trans_data['type'] == "current_sensor_value":
+                    cylinder_num = self.trans_data["sensors"][0]["num"]
+                    if cylinder_num == current_num:
+                        Clock.schedule_once(lambda dt: self.update_drawer_menu())
+                        current_num += 1
+                    if cylinder_num == int(self.selected_actuater):
+                        self.position = next((sensor['position'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                        self.voltage = next((sensor['voltage'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                        self.command = next((sensor['command'] for sensor in self.trans_data.get('sensors', []) if sensor.get('num') == int(self.selected_actuater)), None)
+                elif self.trans_data['type'] == "response_gain_value":
+                    cylinder_num = str(self.trans_data["num"])
+                    if cylinder_num == self.selected_actuater:
+                        self.p = self.trans_data.get("gains", {}).get("p", None)
+                        self.i = self.trans_data.get("gains", {}).get("i", None)
+                        self.d = self.trans_data.get("gains", {}).get("d", None)
+                        self.capture_max = self.trans_data.get("capture", {}).get("max", None)
+                        self.capture_min = self.trans_data.get("capture", {}).get("min", None)
+                        Clock.schedule_once(lambda x: self.gain_sync(self.p,self.i,self.d))
+                
+            self.udp_socket.close()
+            self.udp_socket = None
+            print("切断しました")
 
-        #except Exception as e:
-            #error_message = f"UDP Communication Error: {e}"
-            #print(error_message)
-            #Clock.schedule_once(lambda x: self.stop_communication(error_message))
+        except Exception as e:
+            error_message = f"UDP Communication Error: {e}"
+            print(error_message)
+            Clock.schedule_once(lambda x: self.stop_communication(error_message))
 
     def change_screen(self, screen_name):
         self.root.current = screen_name
@@ -232,9 +237,9 @@ class NativeGUIApp(MDApp):
         print(data)
         
     def gain_sync(self,p,i,d): #1.4/4.4/5.4/6.4/7.4
-        self.p_field.text = p
-        self.i_field.text = i
-        self.d_field.text = d
+        self.p_field.text = str(p)
+        self.i_field.text = str(i)
+        self.d_field.text = str(d)
         self.switch_gain_window(False)
         
     def fixed_motion(self,motion):     #4.1
@@ -307,10 +312,14 @@ class NativeGUIApp(MDApp):
             self.y1 = [0] * 200
             self.y2 = [0] * 200
             self.y3 = [0] * 200
+            self.y4 = [0] * 200
+            self.y5 = [0] * 200
             
             self.pos_line, = self.ax.plot(self.x, self.y1, label="Position")  # 1本目の線
             self.vol_line, = self.ax.plot(self.x, self.y2, label="Voltage")  # 2本目の線
             self.com_line, = self.ax.plot(self.x, self.y3, label="Command")  # 3本目の線
+            self.target_pos_line, = self.ax.plot(self.x, self.y4, label="Target>Position")  # 4本目の線
+            self.target_com_line, = self.ax.plot(self.x, self.y5, label="Target>Command")  # 5本目の線
             
             self.ax.get_xaxis().set_visible(False)
             
@@ -330,11 +339,21 @@ class NativeGUIApp(MDApp):
         # 3本目の線のy値の更新
         self.y3.append(self.command) if self.command_switch.active == True else self.y3.append(None) # y3値の更新
         self.y3.pop(0)  # 古いy3値の削除
+        
+        # 4本目の線のy値の更新
+        self.y4.append(int(self.slider_position)) if self.position_switch.active == True else self.y4.append(None) # y4値の更新
+        self.y4.pop(0)  # 古いy4値の削除
+        
+        # 5本目の線のy値の更新
+        self.y5.append(int(self.slider_command)) if self.command_switch.active == True else self.y5.append(None) # y5値の更新
+        self.y5.pop(0)  # 古いy5値の削除
 
         # 各線のデータを更新
         self.pos_line.set_ydata(self.y1)
         self.vol_line.set_ydata(self.y2)
         self.com_line.set_ydata(self.y3)
+        self.target_pos_line.set_ydata(self.y4)
+        self.target_com_line.set_ydata(self.y5)
 
         self.ax.relim()  # limitsを再計算
         self.ax.autoscale_view()  # スケールを更新
