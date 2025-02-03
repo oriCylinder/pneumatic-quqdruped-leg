@@ -1,5 +1,5 @@
 {
-    "address": "localhost",
+    "address": "192.168.1.1",
     "theme": "Light",
     "color": "Green",
     "actuater_name": {

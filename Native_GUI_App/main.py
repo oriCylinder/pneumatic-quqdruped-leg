@@ -321,6 +321,8 @@ class NativeGUIApp(MDApp):
             self.target_pos_line, = self.ax.plot(self.x, self.y4, label="Target>Position")  # 4本目の線
             self.target_com_line, = self.ax.plot(self.x, self.y5, label="Target>Command")  # 5本目の線
             
+            self.fig.legend()
+            
             self.ax.get_xaxis().set_visible(False)
             
             self.graph_area.add_widget(FigureCanvasKivyAgg(self.fig))   #新規グラフを追加
